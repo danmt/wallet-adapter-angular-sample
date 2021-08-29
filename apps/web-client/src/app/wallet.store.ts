@@ -12,6 +12,7 @@ import {
   Wallet,
   WalletName,
 } from '@solana/wallet-adapter-wallets';
+import { PublicKey } from '@solana/web3.js';
 import { defer, from, Observable, of } from 'rxjs';
 import {
   catchError,
@@ -42,6 +43,7 @@ export interface WalletsState {
   disconnecting: boolean;
   connected: boolean;
   ready: boolean;
+  publicKey: PublicKey | null;
 }
 
 @Injectable()
@@ -50,6 +52,7 @@ export class WalletsStore extends ComponentStore<WalletsState> {
   readonly selectedWallet$ = this.select((state) => state.selectedWallet);
   readonly connected$ = this.select((state) => state.connected);
   readonly adapter$ = this.select((state) => state.adapter);
+  readonly publicKey$ = this.select((state) => state.publicKey);
 
   constructor() {
     super({
@@ -61,6 +64,7 @@ export class WalletsStore extends ComponentStore<WalletsState> {
       connecting: false,
       disconnecting: false,
       ready: false,
+      publicKey: null,
     });
   }
 
@@ -113,8 +117,14 @@ export class WalletsStore extends ComponentStore<WalletsState> {
   readonly onConnect = this.effect(() => {
     return this.adapter$.pipe(
       isNotNull,
-      fromAdapterEvent('connect'),
-      tap(() => this.patchState({ connected: true }))
+      switchMap((adapter) =>
+        of(adapter).pipe(
+          fromAdapterEvent('connect'),
+          tap(() =>
+            this.patchState({ connected: true, publicKey: adapter.publicKey })
+          )
+        )
+      )
     );
   });
 
@@ -128,6 +138,7 @@ export class WalletsStore extends ComponentStore<WalletsState> {
           connecting: false,
           disconnecting: false,
           ready: false,
+          publicKey: null,
         })
       )
     );

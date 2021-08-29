@@ -23,6 +23,7 @@ const DEFAULT_WALLET_PROVIDER = WalletName.Sollet;
 
       <section>
         <p>Selected provider: {{ selectedWallet$ | async }}</p>
+        <p>Wallet Key: {{ publicKey$ | async }}</p>
         <button (click)="onConnect()" *ngIf="(connected$ | async) === false">
           Connect
         </button>
@@ -40,6 +41,7 @@ export class AppComponent implements OnInit {
   selectedWallet$ = this.walletsStore.selectedWallet$;
   selectedProviderControl = new FormControl(DEFAULT_WALLET_PROVIDER);
   connected$ = this.walletsStore.connected$;
+  publicKey$ = this.walletsStore.publicKey$;
 
   constructor(private walletsStore: WalletsStore) {}
 
