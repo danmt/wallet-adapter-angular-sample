@@ -60,8 +60,6 @@ export class WalletsStore extends ComponentStore<WalletsState> {
       disconnecting: false,
       ready: false,
     });
-
-    this.state$.subscribe((a) => console.log(a));
   }
 
   readonly selectWallet = this.effect((walletName$: Observable<WalletName>) => {
@@ -70,15 +68,21 @@ export class WalletsStore extends ComponentStore<WalletsState> {
       filter(
         ([walletName, { selectedWallet }]) => walletName !== selectedWallet
       ),
-      tap(([walletName, { wallets }]) => {
-        const wallet = wallets.find(({ name }) => name === walletName);
-        const adapter = wallet ? wallet.adapter() : null;
-        this.patchState({
-          selectedWallet: walletName,
-          adapter,
-          wallet,
-          ready: adapter.ready || false,
-        });
+      concatMap(([walletName, { wallets, adapter }]) => {
+        return (
+          adapter ? from(defer(() => adapter.disconnect())) : of(null)
+        ).pipe(
+          tap(() => {
+            const wallet = wallets.find(({ name }) => name === walletName);
+            const adapter = wallet ? wallet.adapter() : null;
+            this.patchState({
+              selectedWallet: walletName,
+              adapter,
+              wallet,
+              ready: adapter.ready || false,
+            });
+          })
+        );
       })
     );
   });
@@ -123,7 +127,14 @@ export class WalletsStore extends ComponentStore<WalletsState> {
     return this.adapter$.pipe(
       isNotNull,
       fromAdapterEvent('disconnect'),
-      tap(() => this.patchState({ connected: false }))
+      tap(() =>
+        this.patchState({
+          connected: false,
+          connecting: false,
+          disconnecting: false,
+          ready: false,
+        })
+      )
     );
   });
 
