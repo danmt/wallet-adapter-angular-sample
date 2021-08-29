@@ -57,8 +57,11 @@ export class WalletsStore extends ComponentStore<WalletsState> {
 
   readonly selectWallet = this.effect((walletName$: Observable<WalletName>) => {
     return walletName$.pipe(
-      withLatestFrom(this.wallets$),
-      tap(([walletName, wallets]) => {
+      withLatestFrom(this.state$),
+      filter(
+        ([walletName, { selectedWallet }]) => walletName !== selectedWallet
+      ),
+      tap(([walletName, { wallets }]) => {
         const wallet = wallets.find(({ name }) => name === walletName);
         const adapter = wallet ? wallet.adapter() : null;
         this.patchState({
