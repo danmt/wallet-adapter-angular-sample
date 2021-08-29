@@ -88,10 +88,10 @@ export class WalletsStore extends ComponentStore<WalletsState> {
 
   readonly disconnect = this.effect((action$: Observable<void>) => {
     return action$.pipe(
-      withLatestFrom(this.state$, this.adapter$),
-      filter(([, state]) => !state.disconnecting),
+      withLatestFrom(this.state$),
+      filter(([, { disconnecting }]) => disconnecting),
       tap(() => this.patchState({ disconnecting: true })),
-      concatMap(([, , adapter]) =>
+      concatMap(([, { adapter }]) =>
         from(defer(() => adapter.disconnect())).pipe(catchError(() => of(null)))
       ),
       tap(() => this.patchState({ disconnecting: false }))
