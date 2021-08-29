@@ -85,16 +85,14 @@ export class WalletsStore extends ComponentStore<WalletsState> {
 
   private readonly handleConnect = this.effect((action$: Observable<void>) => {
     return action$.pipe(
-      withLatestFrom(this.state$),
-      filter(
-        ([, state]) =>
-          !state.connected && !state.connecting && !state.disconnecting
-      ),
+      withLatestFrom(this.adapter$),
       tap(() => this.patchState({ connecting: true })),
-      concatMap(([, { adapter }]) =>
-        from(defer(() => adapter.connect())).pipe(catchError(() => of(null)))
-      ),
-      tap(() => this.patchState({ connecting: false }))
+      concatMap(([, adapter]) =>
+        from(defer(() => adapter.connect())).pipe(
+          tap(() => this.patchState({ connecting: false })),
+          catchError(() => of(null))
+        )
+      )
     );
   });
 
@@ -143,17 +141,20 @@ export class WalletsStore extends ComponentStore<WalletsState> {
   });
 
   connect() {
-    const { ready, wallet, adapter } = this.get();
+    const { ready, wallet, adapter, connected, connecting, disconnecting } =
+      this.get();
 
-    if (!wallet || !adapter) {
-      throw new WalletNotSelectedError();
-    }
-    if (!ready) {
-      window.open(wallet.url, '_blank');
-      throw new WalletNotReadyError();
-    }
+    if (!connected && !connecting && !disconnecting) {
+      if (!wallet || !adapter) {
+        throw new WalletNotSelectedError();
+      }
+      if (!ready) {
+        window.open(wallet.url, '_blank');
+        throw new WalletNotReadyError();
+      }
 
-    this.handleConnect();
+      this.handleConnect();
+    }
   }
 
   private logError(error: unknown) {
