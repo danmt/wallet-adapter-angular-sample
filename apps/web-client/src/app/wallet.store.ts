@@ -17,6 +17,8 @@ import {
   catchError,
   concatMap,
   filter,
+  map,
+  switchMap,
   tap,
   withLatestFrom,
 } from 'rxjs/operators';
@@ -62,30 +64,23 @@ export class WalletsStore extends ComponentStore<WalletsState> {
     });
   }
 
-  readonly selectWallet = this.effect((walletName$: Observable<WalletName>) => {
-    return walletName$.pipe(
-      withLatestFrom(this.state$),
-      filter(
-        ([walletName, { selectedWallet }]) => walletName !== selectedWallet
-      ),
-      concatMap(([walletName, { wallets, adapter }]) => {
-        return (
-          adapter ? from(defer(() => adapter.disconnect())) : of(null)
-        ).pipe(
-          tap(() => {
-            const wallet = wallets.find(({ name }) => name === walletName);
-            const adapter = wallet ? wallet.adapter() : null;
-            this.patchState({
-              selectedWallet: walletName,
-              adapter,
-              wallet,
-              ready: adapter.ready || false,
-            });
-          })
-        );
-      })
-    );
-  });
+  private readonly handleSelectWallet = this.effect(
+    (walletName$: Observable<WalletName>) => {
+      return walletName$.pipe(
+        withLatestFrom(this.state$),
+        tap(([walletName, { wallets }]) => {
+          const wallet = wallets.find(({ name }) => name === walletName);
+          const adapter = wallet ? wallet.adapter() : null;
+          this.patchState({
+            selectedWallet: walletName,
+            adapter,
+            wallet,
+            ready: adapter.ready || false,
+          });
+        })
+      );
+    }
+  );
 
   private readonly handleConnect = this.effect((action$: Observable<void>) => {
     return action$.pipe(
@@ -177,6 +172,22 @@ export class WalletsStore extends ComponentStore<WalletsState> {
     if (!disconnecting) {
       this.handleDisconnect();
     }
+  }
+
+  selectWallet(walletName$: Observable<WalletName>) {
+    this.handleSelectWallet(
+      walletName$.pipe(
+        withLatestFrom(this.state$),
+        filter(
+          ([walletName, { selectedWallet }]) => walletName !== selectedWallet
+        ),
+        switchMap(([walletName, { adapter }]) =>
+          (adapter ? from(defer(() => adapter.disconnect())) : of(null)).pipe(
+            map(() => walletName)
+          )
+        )
+      )
+    );
   }
 
   private logError(error: unknown) {
