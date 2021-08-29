@@ -8,7 +8,7 @@
       "prefix": "wallet-adapter-test",
       "targets": {
         "build": {
-          "executor": "@angular-devkit/build-angular:browser",
+          "executor": "@angular-builders/custom-webpack:browser",
           "outputs": ["{options.outputPath}"],
           "options": {
             "outputPath": "dist/apps/web-client",
@@ -22,7 +22,13 @@
               "apps/web-client/src/assets"
             ],
             "styles": ["apps/web-client/src/styles.scss"],
-            "scripts": []
+            "scripts": [],
+            "customWebpackConfig": {
+              "path": "apps/web-client/webpack.config.js",
+              "mergeStrategies": {
+                "externals": "replace"
+              }
+            }
           },
           "configurations": {
             "production": {
@@ -58,7 +64,7 @@
           "defaultConfiguration": "production"
         },
         "serve": {
-          "executor": "@angular-devkit/build-angular:dev-server",
+          "executor": "@angular-builders/custom-webpack:dev-server",
           "configurations": {
             "production": {
               "browserTarget": "web-client:build:production"
