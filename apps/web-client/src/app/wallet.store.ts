@@ -3,6 +3,8 @@ import { ComponentStore } from '@ngrx/component-store';
 import {
   SignerWalletAdapter,
   WalletAdapter,
+  WalletError,
+  WalletNotReadyError,
 } from '@solana/wallet-adapter-base';
 import {
   getPhantomWallet,
@@ -21,6 +23,13 @@ import {
 
 import { fromAdapterEvent } from './from-adapter-event';
 import { isNotNull } from './not-null';
+
+export class WalletNotSelectedError extends WalletError {
+  constructor() {
+    super();
+    this.name = 'WalletNotSelectedError';
+  }
+}
 
 export interface WalletsState {
   wallets: Wallet[];
@@ -74,7 +83,7 @@ export class WalletsStore extends ComponentStore<WalletsState> {
     );
   });
 
-  readonly connect = this.effect((action$: Observable<void>) => {
+  private readonly handleConnect = this.effect((action$: Observable<void>) => {
     return action$.pipe(
       withLatestFrom(this.state$),
       filter(
@@ -101,7 +110,7 @@ export class WalletsStore extends ComponentStore<WalletsState> {
     );
   });
 
-  onConnect = this.effect(() => {
+  readonly onConnect = this.effect(() => {
     return this.adapter$.pipe(
       isNotNull,
       fromAdapterEvent('connect'),
@@ -109,7 +118,7 @@ export class WalletsStore extends ComponentStore<WalletsState> {
     );
   });
 
-  onDisconnect = this.effect(() => {
+  readonly onDisconnect = this.effect(() => {
     return this.adapter$.pipe(
       isNotNull,
       fromAdapterEvent('disconnect'),
@@ -117,7 +126,7 @@ export class WalletsStore extends ComponentStore<WalletsState> {
     );
   });
 
-  onReady = this.effect(() => {
+  readonly onReady = this.effect(() => {
     return this.adapter$.pipe(
       isNotNull,
       fromAdapterEvent('ready'),
@@ -125,7 +134,7 @@ export class WalletsStore extends ComponentStore<WalletsState> {
     );
   });
 
-  onError = this.effect(() => {
+  readonly onError = this.effect(() => {
     return this.adapter$.pipe(
       isNotNull,
       fromAdapterEvent('error'),
@@ -133,13 +142,27 @@ export class WalletsStore extends ComponentStore<WalletsState> {
     );
   });
 
+  connect() {
+    const { ready, wallet, adapter } = this.get();
+
+    if (!wallet || !adapter) {
+      throw new WalletNotSelectedError();
+    }
+    if (!ready) {
+      window.open(wallet.url, '_blank');
+      throw new WalletNotReadyError();
+    }
+
+    this.handleConnect();
+  }
+
   private logError(error: unknown) {
     if (typeof error === 'string') {
       console.error(error);
-    } else if (error instanceof Error) {
+    } else if (error instanceof WalletError) {
       console.error(error);
     } else {
-      console.error('Wrong error type');
+      console.error(error);
     }
   }
 }
