@@ -1,8 +1,11 @@
 import { Component, OnInit } from '@angular/core';
 import { FormControl } from '@angular/forms';
 import { WalletName } from '@solana/wallet-adapter-wallets';
+import { startWith } from 'rxjs/operators';
 
 import { WalletsStore } from './wallet.store';
+
+const DEFAULT_WALLET_PROVIDER = WalletName.Sollet;
 
 @Component({
   selector: 'wallet-adapter-test-root',
@@ -13,7 +16,7 @@ import { WalletsStore } from './wallet.store';
 
     <main>
       <select [formControl]="selectedProviderControl">
-        <option *ngFor="let wallet of wallets$ | async">
+        <option *ngFor="let wallet of wallets$ | async" [ngValue]="wallet.name">
           {{ wallet.name }}
         </option>
       </select>
@@ -35,13 +38,17 @@ import { WalletsStore } from './wallet.store';
 export class AppComponent implements OnInit {
   wallets$ = this.walletsStore.wallets$;
   selectedWallet$ = this.walletsStore.selectedWallet$;
-  selectedProviderControl = new FormControl(WalletName.Sollet);
+  selectedProviderControl = new FormControl(DEFAULT_WALLET_PROVIDER);
   connected$ = this.walletsStore.connected$;
 
   constructor(private walletsStore: WalletsStore) {}
 
   ngOnInit() {
-    this.walletsStore.selectWallet(this.selectedProviderControl.valueChanges);
+    this.walletsStore.selectWallet(
+      this.selectedProviderControl.valueChanges.pipe(
+        startWith(DEFAULT_WALLET_PROVIDER)
+      )
+    );
   }
 
   onConnect() {
