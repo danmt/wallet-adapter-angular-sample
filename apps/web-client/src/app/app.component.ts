@@ -20,7 +20,12 @@ import { WalletsStore } from './wallet.store';
 
       <section>
         <p>Selected provider: {{ selectedWallet$ | async }}</p>
-        <button (click)="onConnect()">Connect</button>
+        <button (click)="onConnect()" *ngIf="(connected$ | async) === false">
+          Connect
+        </button>
+        <button (click)="onDisconnect()" *ngIf="connected$ | async">
+          Disconnect
+        </button>
       </section>
     </main>
   `,
@@ -31,6 +36,7 @@ export class AppComponent implements OnInit {
   wallets$ = this.walletsStore.wallets$;
   selectedWallet$ = this.walletsStore.selectedWallet$;
   selectedProviderControl = new FormControl(WalletName.Sollet);
+  connected$ = this.walletsStore.connected$;
 
   constructor(private walletsStore: WalletsStore) {}
 
@@ -40,5 +46,9 @@ export class AppComponent implements OnInit {
 
   onConnect() {
     this.walletsStore.connect();
+  }
+
+  onDisconnect() {
+    this.walletsStore.disconnect();
   }
 }
