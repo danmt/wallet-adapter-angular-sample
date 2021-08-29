@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { ComponentStore, tapResponse } from '@ngrx/component-store';
+import { WalletError } from '@solana/wallet-adapter-base';
 import {
   getPhantomWallet,
   getSolletWallet,
@@ -7,7 +8,9 @@ import {
   WalletName,
 } from '@solana/wallet-adapter-wallets';
 import { Observable } from 'rxjs';
-import { concatMap, tap, withLatestFrom } from 'rxjs/operators';
+import { concatMap, filter, tap, withLatestFrom } from 'rxjs/operators';
+
+class WalletNotSelectedError extends WalletError {}
 
 const DEFAULT_WALLET_PROVIDER = WalletName.Sollet;
 
@@ -52,9 +55,18 @@ export class WalletsStore extends ComponentStore<WalletsState> {
 
   readonly connect = this.effect((action$: Observable<void>) => {
     return action$.pipe(
-      withLatestFrom(this.adapter$),
-      tap(() => this.patchState({ connecting: true })),
-      concatMap(([, adapter]) => adapter.connect()),
+      withLatestFrom(this.state$, this.adapter$),
+      filter(
+        ([, state]) =>
+          !state.connected && !state.connecting && !state.disconnecting
+      ),
+      tap(([, , adapter]) => {
+        if (!adapter) {
+          throw new WalletNotSelectedError();
+        }
+        this.patchState({ connecting: true });
+      }),
+      concatMap(([, , adapter]) => adapter.connect()),
       tapResponse(
         () => this.patchState({ connecting: false, connected: true }),
         (error) => console.error(error)
@@ -64,9 +76,10 @@ export class WalletsStore extends ComponentStore<WalletsState> {
 
   readonly disconnect = this.effect((action$: Observable<void>) => {
     return action$.pipe(
-      withLatestFrom(this.adapter$),
+      withLatestFrom(this.state$, this.adapter$),
+      filter(([, state]) => !state.disconnecting),
       tap(() => this.patchState({ disconnecting: true })),
-      concatMap(([, adapter]) => adapter.disconnect()),
+      concatMap(([, , adapter]) => adapter.disconnect()),
       tapResponse(
         () => this.patchState({ disconnecting: false, connected: false }),
         (error) => console.error(error)
