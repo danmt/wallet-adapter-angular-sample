@@ -1,9 +1,11 @@
 import { Inject, Injectable, InjectionToken, Optional } from '@angular/core';
 import { ComponentStore } from '@ngrx/component-store';
 import {
+  SendTransactionOptions,
   SignerWalletAdapter,
   WalletAdapter,
   WalletError,
+  WalletNotConnectedError,
   WalletNotReadyError,
 } from '@solana/wallet-adapter-base';
 import {
@@ -12,7 +14,7 @@ import {
   Wallet,
   WalletName,
 } from '@solana/wallet-adapter-wallets';
-import { PublicKey } from '@solana/web3.js';
+import { Connection, PublicKey, Transaction } from '@solana/web3.js';
 import {
   BehaviorSubject,
   combineLatest,
@@ -33,7 +35,18 @@ import {
 import { fromAdapterEvent } from './from-adapter-event';
 import { isNotNull } from './not-null';
 
-export type WalletEvent = 'init' | 'connect' | 'disconnect' | 'selectWallet';
+export type WalletEvent =
+  | 'init'
+  | 'connect'
+  | 'disconnect'
+  | 'selectWallet'
+  | 'sendTransaction';
+
+export interface SendTransactionPayload {
+  transaction: Transaction;
+  connection: Connection;
+  options?: SendTransactionOptions;
+}
 
 export interface Action {
   type: WalletEvent;
@@ -191,6 +204,21 @@ export class WalletsStore extends ComponentStore<WalletsState> {
     );
   });
 
+  readonly handleSendTransaction = this.effect(() => {
+    return this.actions$.pipe(
+      filter((action) => action.type === 'sendTransaction'),
+      concatMap((action) => of(action).pipe(withLatestFrom(this.adapter$))),
+      concatMap(([{ payload }, adapter]) => {
+        const { transaction, connection, options } =
+          payload as SendTransactionPayload;
+
+        return from(
+          defer(() => adapter.sendTransaction(transaction, connection, options))
+        ).pipe(catchError(() => of(null)));
+      })
+    );
+  });
+
   readonly onConnect = this.effect(() => {
     return this.adapter$.pipe(
       isNotNull,
@@ -264,6 +292,27 @@ export class WalletsStore extends ComponentStore<WalletsState> {
     if (!disconnecting) {
       this.dispatcher.next({ type: 'disconnect' });
     }
+  }
+
+  sendTransaction(
+    transaction: Transaction,
+    connection: Connection,
+    options?: SendTransactionOptions
+  ) {
+    const { adapter, connected } = this.get();
+
+    if (!adapter) {
+      throw new WalletNotSelectedError();
+    }
+
+    if (!connected) {
+      throw new WalletNotConnectedError();
+    }
+
+    this.dispatcher.next({
+      type: 'sendTransaction',
+      payload: { transaction, connection, options },
+    });
   }
 
   private logError(error: unknown) {
