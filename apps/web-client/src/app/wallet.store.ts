@@ -33,8 +33,10 @@ import {
 import { fromAdapterEvent } from './from-adapter-event';
 import { isNotNull } from './not-null';
 
-interface Action {
-  type: string;
+export type WalletEvent = 'init' | 'connect' | 'disconnect' | 'selectWallet';
+
+export interface Action {
+  type: WalletEvent;
   payload?: unknown;
 }
 
