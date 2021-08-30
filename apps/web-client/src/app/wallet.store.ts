@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Inject, Injectable, InjectionToken, Optional } from '@angular/core';
 import { ComponentStore } from '@ngrx/component-store';
 import {
   SignerWalletAdapter,
@@ -31,7 +31,9 @@ interface Action {
   payload?: unknown;
 }
 
-const DEFAULT_WALLET_PROVIDER = WalletName.Sollet;
+export const LOCAL_STORAGE_WALLET_KEY = new InjectionToken(
+  'localStorageWalletKey'
+);
 
 export class WalletNotSelectedError extends WalletError {
   constructor() {
@@ -63,7 +65,11 @@ export class WalletsStore extends ComponentStore<WalletsState> {
   readonly publicKey$ = this.select((state) => state.publicKey);
   readonly ready$ = this.select((state) => state.ready);
 
-  constructor() {
+  constructor(
+    @Optional()
+    @Inject(LOCAL_STORAGE_WALLET_KEY)
+    private localStorageKey: string
+  ) {
     super({
       wallets: [getSolletWallet(), getPhantomWallet()],
       selectedWallet: null,
@@ -76,9 +82,13 @@ export class WalletsStore extends ComponentStore<WalletsState> {
       publicKey: null,
     });
 
-    const walletName = localStorage.getItem('walletName');
+    if (this.localStorageKey === null) {
+      this.localStorageKey = 'walletName';
+    }
+
+    const walletName = localStorage.getItem(this.localStorageKey);
     this.selectWallet(
-      walletName ? (walletName as WalletName) : DEFAULT_WALLET_PROVIDER
+      walletName ? (walletName as WalletName) : WalletName.Sollet
     );
   }
 
@@ -87,7 +97,7 @@ export class WalletsStore extends ComponentStore<WalletsState> {
       filter((action) => action.type === 'selectWallet'),
       withLatestFrom(this.state$),
       tap(([{ payload: walletName }, { wallets }]) => {
-        localStorage.setItem('walletName', walletName as string);
+        localStorage.setItem(this.localStorageKey, walletName as string);
         const wallet = wallets.find(({ name }) => name === walletName);
         const adapter = wallet ? wallet.adapter() : null;
         this.patchState({
