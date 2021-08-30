@@ -1,20 +1,16 @@
-import { Inject, Injectable, InjectionToken, Optional } from '@angular/core';
+import { Inject, Injectable, Optional } from '@angular/core';
 import { ComponentStore, tapResponse } from '@ngrx/component-store';
 import {
   SendTransactionOptions,
-  SignerWalletAdapter,
-  WalletAdapter,
-  WalletError,
   WalletNotConnectedError,
   WalletNotReadyError,
 } from '@solana/wallet-adapter-base';
 import {
   getPhantomWallet,
   getSolletWallet,
-  Wallet,
   WalletName,
 } from '@solana/wallet-adapter-wallets';
-import { Connection, PublicKey, Transaction } from '@solana/web3.js';
+import { Connection, Transaction } from '@solana/web3.js';
 import {
   BehaviorSubject,
   combineLatest,
@@ -32,54 +28,15 @@ import {
   withLatestFrom,
 } from 'rxjs/operators';
 
-import { fromAdapterEvent } from './from-adapter-event';
-import { isNotNull } from './not-null';
-
-export type WalletEvent =
-  | 'init'
-  | 'connect'
-  | 'disconnect'
-  | 'selectWallet'
-  | 'sendTransaction'
-  | 'signTransaction'
-  | 'signAllTransactions';
-
-export interface SendTransactionPayload {
-  transaction: Transaction;
-  connection: Connection;
-  options?: SendTransactionOptions;
-}
-
-export interface Action {
-  type: WalletEvent;
-  payload?: unknown;
-}
-
-export const LOCAL_STORAGE_WALLET_KEY = new InjectionToken(
-  'localStorageWalletKey'
-);
-
-export const WALLET_AUTO_CONNECT = new InjectionToken('walletAutoConnect');
-
-export class WalletNotSelectedError extends WalletError {
-  constructor() {
-    super();
-    this.name = 'WalletNotSelectedError';
-  }
-}
-
-export interface WalletsState {
-  wallets: Wallet[];
-  selectedWallet: WalletName | null;
-  wallet: Wallet | null;
-  adapter: WalletAdapter | SignerWalletAdapter | null;
-  connecting: boolean;
-  disconnecting: boolean;
-  connected: boolean;
-  ready: boolean;
-  publicKey: PublicKey | null;
-  autoApprove: boolean;
-}
+import { fromAdapterEvent, isNotNull } from './operators';
+import {
+  Action,
+  LOCAL_STORAGE_WALLET_KEY,
+  SendTransactionPayload,
+  WALLET_AUTO_CONNECT,
+  WalletNotSelectedError,
+  WalletsState,
+} from './utils';
 
 @Injectable()
 export class WalletsStore extends ComponentStore<WalletsState> {
@@ -392,8 +349,6 @@ export class WalletsStore extends ComponentStore<WalletsState> {
 
   private logError(error: unknown) {
     if (typeof error === 'string') {
-      console.error(error);
-    } else if (error instanceof WalletError) {
       console.error(error);
     } else {
       console.error(error);
