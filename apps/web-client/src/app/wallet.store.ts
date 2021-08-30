@@ -61,6 +61,7 @@ export interface WalletsState {
   connected: boolean;
   ready: boolean;
   publicKey: PublicKey | null;
+  autoApprove: boolean;
 }
 
 @Injectable()
@@ -92,6 +93,7 @@ export class WalletsStore extends ComponentStore<WalletsState> {
       disconnecting: false,
       ready: false,
       publicKey: null,
+      autoApprove: false,
     });
 
     if (this.localStorageKey === null) {
@@ -194,7 +196,11 @@ export class WalletsStore extends ComponentStore<WalletsState> {
         of(adapter).pipe(
           fromAdapterEvent('connect'),
           tap(() =>
-            this.patchState({ connected: true, publicKey: adapter.publicKey })
+            this.patchState({
+              connected: true,
+              publicKey: adapter.publicKey,
+              autoApprove: adapter.autoApprove,
+            })
           )
         )
       )
