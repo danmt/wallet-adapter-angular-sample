@@ -64,6 +64,9 @@ import { WalletsStore } from './wallet.store';
 
         <button (click)="onSendTransaction(publicKey)">Send Transaction</button>
         <button (click)="onSignTransaction(publicKey)">Sign Transaction</button>
+        <button (click)="onSignAllTransactions(publicKey)">
+          Sign All Transactions
+        </button>
       </section>
     </main>
   `,
@@ -120,5 +123,23 @@ export class AppComponent {
     );
 
     this.walletsStore.signTransaction(transaction);
+  }
+
+  async onSignAllTransactions(fromPubkey: PublicKey) {
+    const recentBlockhash = await this.connection.getRecentBlockhash();
+    const transactions = new Array(3).fill(0).map(() =>
+      new Transaction({
+        recentBlockhash: recentBlockhash.blockhash,
+        feePayer: fromPubkey,
+      }).add(
+        SystemProgram.transfer({
+          fromPubkey,
+          toPubkey: new PublicKey(this.recipient),
+          lamports: this.lamports,
+        })
+      )
+    );
+
+    this.walletsStore.signAllTransactions(transactions);
   }
 }

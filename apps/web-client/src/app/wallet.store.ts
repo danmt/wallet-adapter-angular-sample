@@ -41,7 +41,8 @@ export type WalletEvent =
   | 'disconnect'
   | 'selectWallet'
   | 'sendTransaction'
-  | 'signTransaction';
+  | 'signTransaction'
+  | 'signAllTransactions';
 
 export interface SendTransactionPayload {
   transaction: Transaction;
@@ -240,6 +241,21 @@ export class WalletsStore extends ComponentStore<WalletsState> {
     );
   });
 
+  readonly handleSignAllTransactions = this.effect(() => {
+    return this.actions$.pipe(
+      filter((action) => action.type === 'signAllTransactions'),
+      concatMap((action) => of(action).pipe(withLatestFrom(this.adapter$))),
+      concatMap(([{ payload: transactions }, adapter]) =>
+        from(defer(() => adapter.signAllTransactions(transactions))).pipe(
+          tapResponse(
+            (signedTransactions) => console.log(signedTransactions),
+            (error) => this.logError(error)
+          )
+        )
+      )
+    );
+  });
+
   readonly onConnect = this.effect(() => {
     return this.adapter$.pipe(
       isNotNull,
@@ -351,6 +367,25 @@ export class WalletsStore extends ComponentStore<WalletsState> {
       this.dispatcher.next({
         type: 'signTransaction',
         payload: transaction,
+      });
+    }
+  }
+
+  signAllTransactions(transactions: Transaction[]) {
+    const { adapter, connected } = this.get();
+
+    if (!adapter) {
+      throw new WalletNotSelectedError();
+    }
+
+    if (!connected) {
+      throw new WalletNotConnectedError();
+    }
+
+    if ('signAllTransactions' in adapter) {
+      this.dispatcher.next({
+        type: 'signAllTransactions',
+        payload: transactions,
       });
     }
   }
