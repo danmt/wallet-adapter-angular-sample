@@ -1,5 +1,5 @@
 import { Inject, Injectable, InjectionToken, Optional } from '@angular/core';
-import { ComponentStore } from '@ngrx/component-store';
+import { ComponentStore, tapResponse } from '@ngrx/component-store';
 import {
   SendTransactionOptions,
   SignerWalletAdapter,
@@ -40,7 +40,8 @@ export type WalletEvent =
   | 'connect'
   | 'disconnect'
   | 'selectWallet'
-  | 'sendTransaction';
+  | 'sendTransaction'
+  | 'signTransaction';
 
 export interface SendTransactionPayload {
   transaction: Transaction;
@@ -214,8 +215,28 @@ export class WalletsStore extends ComponentStore<WalletsState> {
 
         return from(
           defer(() => adapter.sendTransaction(transaction, connection, options))
-        ).pipe(catchError(() => of(null)));
+        ).pipe(
+          tapResponse(
+            (txId) => console.log(txId),
+            (error) => this.logError(error)
+          )
+        );
       })
+    );
+  });
+
+  readonly handleSignTransaction = this.effect(() => {
+    return this.actions$.pipe(
+      filter((action) => action.type === 'signTransaction'),
+      concatMap((action) => of(action).pipe(withLatestFrom(this.adapter$))),
+      concatMap(([{ payload: transaction }, adapter]) =>
+        from(defer(() => adapter.signTransaction(transaction))).pipe(
+          tapResponse(
+            (signedTransaction) => console.log(signedTransaction),
+            (error) => this.logError(error)
+          )
+        )
+      )
     );
   });
 
@@ -313,6 +334,25 @@ export class WalletsStore extends ComponentStore<WalletsState> {
       type: 'sendTransaction',
       payload: { transaction, connection, options },
     });
+  }
+
+  signTransaction(transaction: Transaction) {
+    const { adapter, connected } = this.get();
+
+    if (!adapter) {
+      throw new WalletNotSelectedError();
+    }
+
+    if (!connected) {
+      throw new WalletNotConnectedError();
+    }
+
+    if ('signTransaction' in adapter) {
+      this.dispatcher.next({
+        type: 'signTransaction',
+        payload: transaction,
+      });
+    }
   }
 
   private logError(error: unknown) {
