@@ -91,24 +91,6 @@ export class WalletsStore extends ComponentStore<WalletsState> {
     );
   });
 
-  readonly handleSelectWallet = this.effect(() => {
-    return this.actions$.pipe(
-      filter((action) => action.type === 'selectWallet'),
-      concatMap((action) => of(action).pipe(withLatestFrom(this.state$))),
-      tap(([{ payload: walletName }, { wallets }]) => {
-        localStorage.setItem(this.localStorageKey, walletName as string);
-        const wallet = wallets.find(({ name }) => name === walletName);
-        const adapter = wallet ? wallet.adapter() : null;
-        this.patchState({
-          selectedWallet: walletName as WalletName,
-          adapter,
-          wallet,
-          ready: adapter.ready || false,
-        });
-      })
-    );
-  });
-
   readonly handleConnect = this.effect(() => {
     return this.actions$.pipe(
       filter((action) => action.type === 'connect'),
@@ -149,12 +131,16 @@ export class WalletsStore extends ComponentStore<WalletsState> {
       filter(
         ([walletName, { selectedWallet }]) => walletName !== selectedWallet
       ),
-      concatMap(([walletName, { adapter }]) =>
+      concatMap(([walletName, { adapter, wallets }]) =>
         (adapter ? from(defer(() => adapter.disconnect())) : of(null)).pipe(
           tap(() => {
-            this.dispatcher.next({
-              type: 'selectWallet',
-              payload: walletName,
+            const wallet = wallets.find(({ name }) => name === walletName);
+            const adapter = wallet ? wallet.adapter() : null;
+            this.patchState({
+              selectedWallet: walletName as WalletName,
+              adapter,
+              wallet,
+              ready: adapter.ready || false,
             });
           }),
           catchError(() => of(null))

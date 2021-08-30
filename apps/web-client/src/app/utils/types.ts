@@ -10,7 +10,6 @@ export type WalletEvent =
   | 'init'
   | 'connect'
   | 'disconnect'
-  | 'selectWallet'
   | 'sendTransaction'
   | 'signTransaction'
   | 'signAllTransactions';
