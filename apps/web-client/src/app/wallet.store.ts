@@ -31,6 +31,8 @@ interface Action {
   payload?: unknown;
 }
 
+const DEFAULT_WALLET_PROVIDER = WalletName.Sollet;
+
 export class WalletNotSelectedError extends WalletError {
   constructor() {
     super();
@@ -59,6 +61,7 @@ export class WalletsStore extends ComponentStore<WalletsState> {
   readonly connected$ = this.select((state) => state.connected);
   readonly adapter$ = this.select((state) => state.adapter);
   readonly publicKey$ = this.select((state) => state.publicKey);
+  readonly ready$ = this.select((state) => state.ready);
 
   constructor() {
     super({
@@ -72,6 +75,11 @@ export class WalletsStore extends ComponentStore<WalletsState> {
       ready: false,
       publicKey: null,
     });
+
+    const walletName = localStorage.getItem('walletName');
+    this.selectWallet(
+      walletName ? (walletName as WalletName) : DEFAULT_WALLET_PROVIDER
+    );
   }
 
   readonly handleSelectWallet = this.effect(() => {
@@ -79,6 +87,7 @@ export class WalletsStore extends ComponentStore<WalletsState> {
       filter((action) => action.type === 'selectWallet'),
       withLatestFrom(this.state$),
       tap(([{ payload: walletName }, { wallets }]) => {
+        localStorage.setItem('walletName', walletName as string);
         const wallet = wallets.find(({ name }) => name === walletName);
         const adapter = wallet ? wallet.adapter() : null;
         this.patchState({

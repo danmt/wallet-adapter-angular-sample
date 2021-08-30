@@ -1,11 +1,7 @@
-import { Component, OnInit } from '@angular/core';
-import { FormControl } from '@angular/forms';
+import { Component } from '@angular/core';
 import { WalletName } from '@solana/wallet-adapter-wallets';
-import { startWith } from 'rxjs/operators';
 
 import { WalletsStore } from './wallet.store';
-
-const DEFAULT_WALLET_PROVIDER = WalletName.Sollet;
 
 @Component({
   selector: 'wallet-adapter-test-root',
@@ -15,16 +11,26 @@ const DEFAULT_WALLET_PROVIDER = WalletName.Sollet;
     </header>
 
     <main>
-      <select [formControl]="selectedProviderControl">
+      <select
+        [ngModel]="selectedWallet$ | async"
+        (ngModelChange)="onSelectWallet($event)"
+      >
         <option *ngFor="let wallet of wallets$ | async" [ngValue]="wallet.name">
           {{ wallet.name }}
         </option>
       </select>
 
       <section>
-        <p>Selected provider: {{ selectedWallet$ | async }}</p>
+        <p>
+          Selected provider: {{ selectedWallet$ | async }}
+          <ng-container *ngIf="ready$ | async">(READY)</ng-container>
+        </p>
         <p>Wallet Key: {{ publicKey$ | async }}</p>
-        <button (click)="onConnect()" *ngIf="(connected$ | async) === false">
+        <button
+          (click)="onConnect()"
+          *ngIf="(connected$ | async) === false"
+          [disabled]="(ready$ | async) === false"
+        >
           Connect
         </button>
         <button (click)="onDisconnect()" *ngIf="connected$ | async">
@@ -36,22 +42,14 @@ const DEFAULT_WALLET_PROVIDER = WalletName.Sollet;
   styles: [],
   viewProviders: [WalletsStore],
 })
-export class AppComponent implements OnInit {
+export class AppComponent {
   wallets$ = this.walletsStore.wallets$;
   selectedWallet$ = this.walletsStore.selectedWallet$;
-  selectedProviderControl = new FormControl(DEFAULT_WALLET_PROVIDER);
   connected$ = this.walletsStore.connected$;
   publicKey$ = this.walletsStore.publicKey$;
+  ready$ = this.walletsStore.ready$;
 
   constructor(private walletsStore: WalletsStore) {}
-
-  ngOnInit() {
-    this.walletsStore.selectWallet(
-      this.selectedProviderControl.valueChanges.pipe(
-        startWith(DEFAULT_WALLET_PROVIDER)
-      )
-    );
-  }
 
   onConnect() {
     this.walletsStore.connect();
@@ -59,5 +57,9 @@ export class AppComponent implements OnInit {
 
   onDisconnect() {
     this.walletsStore.disconnect();
+  }
+
+  onSelectWallet(walletName: WalletName) {
+    this.walletsStore.selectWallet(walletName);
   }
 }
