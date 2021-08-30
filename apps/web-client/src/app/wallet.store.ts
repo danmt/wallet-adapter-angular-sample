@@ -13,7 +13,14 @@ import {
   WalletName,
 } from '@solana/wallet-adapter-wallets';
 import { PublicKey } from '@solana/web3.js';
-import { BehaviorSubject, defer, from, Observable, of } from 'rxjs';
+import {
+  BehaviorSubject,
+  combineLatest,
+  defer,
+  from,
+  Observable,
+  of,
+} from 'rxjs';
 import {
   catchError,
   concatMap,
@@ -34,6 +41,8 @@ interface Action {
 export const LOCAL_STORAGE_WALLET_KEY = new InjectionToken(
   'localStorageWalletKey'
 );
+
+export const WALLET_AUTO_CONNECT = new InjectionToken('walletAutoConnect');
 
 export class WalletNotSelectedError extends WalletError {
   constructor() {
@@ -68,7 +77,10 @@ export class WalletsStore extends ComponentStore<WalletsState> {
   constructor(
     @Optional()
     @Inject(LOCAL_STORAGE_WALLET_KEY)
-    private localStorageKey: string
+    private localStorageKey: string,
+    @Optional()
+    @Inject(WALLET_AUTO_CONNECT)
+    private autoConnect: boolean
   ) {
     super({
       wallets: [getSolletWallet(), getPhantomWallet()],
@@ -86,16 +98,27 @@ export class WalletsStore extends ComponentStore<WalletsState> {
       this.localStorageKey = 'walletName';
     }
 
+    if (this.autoConnect === null) {
+      this.autoConnect = false;
+    }
+
     const walletName = localStorage.getItem(this.localStorageKey);
     this.selectWallet(
       walletName ? (walletName as WalletName) : WalletName.Sollet
     );
   }
 
+  readonly handleAutoConnect = this.effect(() => {
+    return combineLatest([this.adapter$, this.ready$]).pipe(
+      filter(([adapter, ready]) => this.autoConnect && adapter && ready),
+      tap(() => this.dispatcher.next({ type: 'connect' }))
+    );
+  });
+
   readonly handleSelectWallet = this.effect(() => {
     return this.actions$.pipe(
       filter((action) => action.type === 'selectWallet'),
-      withLatestFrom(this.state$),
+      concatMap((action) => of(action).pipe(withLatestFrom(this.state$))),
       tap(([{ payload: walletName }, { wallets }]) => {
         localStorage.setItem(this.localStorageKey, walletName as string);
         const wallet = wallets.find(({ name }) => name === walletName);
@@ -113,9 +136,11 @@ export class WalletsStore extends ComponentStore<WalletsState> {
   readonly handleConnect = this.effect(() => {
     return this.actions$.pipe(
       filter((action) => action.type === 'connect'),
-      withLatestFrom(this.adapter$),
+      concatMap(() =>
+        of(null).pipe(withLatestFrom(this.adapter$, (_, adapter) => adapter))
+      ),
       tap(() => this.patchState({ connecting: true })),
-      concatMap(([, adapter]) =>
+      concatMap((adapter) =>
         from(defer(() => adapter.connect())).pipe(
           tap(() => this.patchState({ connecting: false })),
           catchError(() => of(null))
@@ -127,9 +152,11 @@ export class WalletsStore extends ComponentStore<WalletsState> {
   readonly handleDisconnect = this.effect(() => {
     return this.actions$.pipe(
       filter((action) => action.type === 'disconnect'),
-      withLatestFrom(this.adapter$),
+      concatMap(() =>
+        of(null).pipe(withLatestFrom(this.adapter$, (_, adapter) => adapter))
+      ),
       tap(() => this.patchState({ disconnecting: true })),
-      concatMap(([, adapter]) =>
+      concatMap((adapter) =>
         from(defer(() => adapter.disconnect())).pipe(
           tap(() => this.patchState({ disconnecting: false })),
           catchError(() => of(null))
@@ -141,7 +168,8 @@ export class WalletsStore extends ComponentStore<WalletsState> {
   readonly selectWallet = this.effect((walletName$: Observable<WalletName>) => {
     return walletName$.pipe(
       isNotNull,
-      withLatestFrom(this.state$),
+      concatMap((action) => of(action).pipe(withLatestFrom(this.state$))),
+
       filter(
         ([walletName, { selectedWallet }]) => walletName !== selectedWallet
       ),

@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { WalletName } from '@solana/wallet-adapter-wallets';
 
-import { WalletsStore } from './wallet.store';
+import { WalletsStore, WALLET_AUTO_CONNECT } from './wallet.store';
 
 @Component({
   selector: 'wallet-adapter-test-root',
@@ -40,7 +40,10 @@ import { WalletsStore } from './wallet.store';
     </main>
   `,
   styles: [],
-  viewProviders: [WalletsStore],
+  viewProviders: [
+    { provide: WALLET_AUTO_CONNECT, useValue: true },
+    WalletsStore,
+  ],
 })
 export class AppComponent {
   wallets$ = this.walletsStore.wallets$;
