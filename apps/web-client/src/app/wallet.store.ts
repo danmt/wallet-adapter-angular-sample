@@ -13,7 +13,7 @@ import {
   WalletName,
 } from '@solana/wallet-adapter-wallets';
 import { PublicKey } from '@solana/web3.js';
-import { BehaviorSubject, defer, from, Observable, of, Subject } from 'rxjs';
+import { BehaviorSubject, defer, from, Observable, of } from 'rxjs';
 import {
   catchError,
   concatMap,
