@@ -129,7 +129,6 @@ export class WalletsStore extends ComponentStore<WalletsState> {
 
   readonly selectWallet = this.effect((walletName$: Observable<WalletName>) => {
     return walletName$.pipe(
-      isNotNull,
       concatMap((action) => of(action).pipe(withLatestFrom(this.state$))),
       filter(
         ([walletName, { selectedWallet }]) => walletName !== selectedWallet
