@@ -4,17 +4,12 @@ import {
   getSolletWallet,
   WalletName,
 } from '@solana/wallet-adapter-wallets';
-import {
-  Connection,
-  PublicKey,
-  SystemProgram,
-  Transaction,
-} from '@solana/web3.js';
+import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { defer, from } from 'rxjs';
-import { concatMap } from 'rxjs/operators';
+import { concatMap, first } from 'rxjs/operators';
 
-import { walletProvider } from './wallet.provider';
-import { WalletsStore } from './wallet.store';
+import { connectionProvider, ConnectionStore } from './connection';
+import { walletProvider, WalletStore } from './wallet';
 
 @Component({
   selector: 'wallet-adapter-test-root',
@@ -78,52 +73,66 @@ import { WalletsStore } from './wallet.store';
     </main>
   `,
   styles: [],
-  viewProviders: [...walletProvider([getSolletWallet(), getPhantomWallet()])],
+  viewProviders: [
+    ...walletProvider([getSolletWallet(), getPhantomWallet()]),
+    ...connectionProvider('https://api.devnet.solana.com'),
+  ],
 })
 export class AppComponent {
-  connection = new Connection('https://api.devnet.solana.com');
-  wallets$ = this.walletsStore.wallets$;
-  selectedWallet$ = this.walletsStore.selectedWallet$;
-  connected$ = this.walletsStore.connected$;
-  publicKey$ = this.walletsStore.publicKey$;
-  ready$ = this.walletsStore.ready$;
+  connection$ = this.connectionStore.connection$;
+  wallets$ = this.walletStore.wallets$;
+  selectedWallet$ = this.walletStore.selectedWallet$;
+  connected$ = this.walletStore.connected$;
+  publicKey$ = this.walletStore.publicKey$;
+  ready$ = this.walletStore.ready$;
   lamports = 0;
   recipient = '';
 
-  constructor(private walletsStore: WalletsStore) {}
+  constructor(
+    private connectionStore: ConnectionStore,
+    private walletStore: WalletStore
+  ) {}
 
   onConnect() {
-    this.walletsStore.connect();
+    this.walletStore.connect();
   }
 
   onDisconnect() {
-    this.walletsStore.disconnect();
+    this.walletStore.disconnect();
   }
 
   onSelectWallet(walletName: WalletName) {
-    this.walletsStore.selectWallet(walletName);
+    this.walletStore.selectWallet(walletName);
   }
 
   onSendTransaction(fromPubkey: PublicKey) {
-    this.walletsStore
-      .sendTransaction(
-        new Transaction().add(
-          SystemProgram.transfer({
-            fromPubkey,
-            toPubkey: new PublicKey(this.recipient),
-            lamports: this.lamports,
-          })
-        ),
-        this.connection
+    this.connection$
+      .pipe(
+        first(),
+        concatMap((connection) =>
+          this.walletStore.sendTransaction(
+            new Transaction().add(
+              SystemProgram.transfer({
+                fromPubkey,
+                toPubkey: new PublicKey(this.recipient),
+                lamports: this.lamports,
+              })
+            ),
+            connection
+          )
+        )
       )
       .subscribe((signature) => console.log(`Transaction sent (${signature})`));
   }
 
   onSignTransaction(fromPubkey: PublicKey) {
-    from(defer(() => this.connection.getRecentBlockhash()))
+    this.connection$
       .pipe(
+        concatMap((connection) =>
+          from(defer(() => connection.getRecentBlockhash()))
+        ),
         concatMap(({ blockhash }) =>
-          this.walletsStore.signTransaction(
+          this.walletStore.signTransaction(
             new Transaction({
               recentBlockhash: blockhash,
               feePayer: fromPubkey,
@@ -143,10 +152,14 @@ export class AppComponent {
   }
 
   onSignAllTransactions(fromPubkey: PublicKey) {
-    from(defer(() => this.connection.getRecentBlockhash()))
+    this.connection$
       .pipe(
+        first(),
+        concatMap((connection) =>
+          from(defer(() => connection.getRecentBlockhash()))
+        ),
         concatMap(({ blockhash }) =>
-          this.walletsStore.signAllTransactions(
+          this.walletStore.signAllTransactions(
             new Array(3).fill(0).map(() =>
               new Transaction({
                 recentBlockhash: blockhash,

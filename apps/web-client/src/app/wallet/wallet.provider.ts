@@ -1,15 +1,17 @@
 import { Wallet } from '@solana/wallet-adapter-wallets';
-import { WALLET_CONFIG, WalletConfig } from './utils';
-import { WalletsStore } from './wallet.store';
+
+import { WalletStore } from './wallet.store';
+import { WALLET_OPTIONS } from './wallet.tokens';
+import { WalletConfig } from './wallet.types';
 
 export const walletProvider = (wallets: Wallet[], config?: WalletConfig) => [
   {
-    provide: WALLET_CONFIG,
+    provide: WALLET_OPTIONS,
     useValue: {
       wallets,
       autoConnect: config?.autoConnect || false,
       localStorageKey: config?.localStorageKey || 'walletName',
     },
   },
-  WalletsStore,
+  WalletStore,
 ];

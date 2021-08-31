@@ -5,7 +5,7 @@ import {
 import { Wallet, WalletName } from '@solana/wallet-adapter-wallets';
 import { PublicKey } from '@solana/web3.js';
 
-export interface WalletsState {
+export interface WalletState {
   wallets: Wallet[];
   selectedWallet: WalletName | null;
   wallet: Wallet | null;
@@ -19,7 +19,11 @@ export interface WalletsState {
 }
 
 export interface WalletConfig {
-  wallets: Wallet[];
   localStorageKey?: string;
   autoConnect?: boolean;
+}
+
+export interface WalletOptions {
+  wallets: Wallet[];
+  config: WalletConfig;
 }

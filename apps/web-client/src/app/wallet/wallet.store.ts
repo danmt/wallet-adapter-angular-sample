@@ -29,21 +29,20 @@ import {
   withLatestFrom,
 } from 'rxjs/operators';
 
-import { fromAdapterEvent, isNotNull } from './operators';
+import { fromAdapterEvent, isNotNull } from '../operators';
 import {
   SignAllTransactionsNotFoundError,
   SignTransactionNotFoundError,
-  WALLET_CONFIG,
-  WalletConfig,
   WalletNotSelectedError,
-  WalletsState,
-} from './utils';
+} from './wallet.errors';
+import { WALLET_OPTIONS } from './wallet.tokens';
+import { WalletOptions, WalletState } from './wallet.types';
 
 @Injectable()
-export class WalletsStore extends ComponentStore<WalletsState> {
-  private readonly _autoConnect = this._config.autoConnect || false;
+export class WalletStore extends ComponentStore<WalletState> {
+  private readonly _autoConnect = this._options.config?.autoConnect || false;
   private readonly _localStorageKey =
-    this._config.localStorageKey || 'walletName';
+    this._options.config?.localStorageKey || 'walletName';
   readonly wallets$ = this.select((state) => state.wallets);
   readonly selectedWallet$ = this.select((state) => state.selectedWallet);
   readonly connected$ = this.select((state) => state.connected);
@@ -51,13 +50,23 @@ export class WalletsStore extends ComponentStore<WalletsState> {
   readonly adapter$ = this.select((state) => state.adapter);
   readonly publicKey$ = this.select((state) => state.publicKey);
   readonly ready$ = this.select((state) => state.ready);
+  readonly anchorWallet$ = this.select(
+    this.publicKey$.pipe(isNotNull),
+    (publicKey) => ({
+      publicKey,
+      signTransaction: (transaction: Transaction) =>
+        this.signTransaction(transaction).toPromise(),
+      signAllTransactions: (transactions: Transaction[]) =>
+        this.signAllTransactions(transactions).toPromise(),
+    })
+  );
 
   constructor(
-    @Inject(WALLET_CONFIG)
-    private _config: WalletConfig
+    @Inject(WALLET_OPTIONS)
+    private _options: WalletOptions
   ) {
     super({
-      wallets: _config.wallets,
+      wallets: _options.wallets,
       selectedWallet: null,
       wallet: null,
       adapter: null,
