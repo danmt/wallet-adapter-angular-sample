@@ -9,8 +9,10 @@ export const walletProvider = (wallets: Wallet[], config?: WalletConfig) => [
     provide: WALLET_OPTIONS,
     useValue: {
       wallets,
-      autoConnect: config?.autoConnect || false,
-      localStorageKey: config?.localStorageKey || 'walletName',
+      config: {
+        autoConnect: config?.autoConnect || false,
+        localStorageKey: config?.localStorageKey || 'walletName',
+      },
     },
   },
   WalletStore,
