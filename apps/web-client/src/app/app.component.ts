@@ -1,5 +1,11 @@
 import { Component, OnInit } from '@angular/core';
 import {
+  connectionProvider,
+  ConnectionStore,
+  walletProvider,
+  WalletStore,
+} from '@solana/wallet-adapter-angular';
+import {
   getPhantomWallet,
   getSolletWallet,
   WalletName,
@@ -8,9 +14,7 @@ import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { defer, from } from 'rxjs';
 import { concatMap, first } from 'rxjs/operators';
 
-import { connectionProvider, ConnectionStore } from './connection';
 import { isNotNull } from './operators';
-import { walletProvider, WalletStore } from './wallet';
 
 @Component({
   selector: 'wallet-adapter-test-root',
@@ -75,7 +79,9 @@ import { walletProvider, WalletStore } from './wallet';
   `,
   styles: [],
   viewProviders: [
-    ...walletProvider({ wallets: [getSolletWallet(), getPhantomWallet()] }),
+    ...walletProvider({
+      wallets: [getSolletWallet(), getPhantomWallet()],
+    }),
     ...connectionProvider(),
   ],
 })
