@@ -57,10 +57,10 @@ export class WalletsStore extends ComponentStore<WalletsState> {
   constructor(
     @Optional()
     @Inject(LOCAL_STORAGE_WALLET_KEY)
-    private localStorageKey: string,
+    private _localStorageKey: string,
     @Optional()
     @Inject(WALLET_AUTO_CONNECT)
-    private autoConnect: boolean
+    private _autoConnect: boolean
   ) {
     super({
       wallets: [getSolletWallet(), getPhantomWallet()],
@@ -75,23 +75,23 @@ export class WalletsStore extends ComponentStore<WalletsState> {
       autoApprove: false,
     });
 
-    if (this.localStorageKey === null) {
-      this.localStorageKey = 'walletName';
+    if (this._localStorageKey === null) {
+      this._localStorageKey = 'walletName';
     }
 
-    if (this.autoConnect === null) {
-      this.autoConnect = false;
+    if (this._autoConnect === null) {
+      this._autoConnect = false;
     }
 
-    const walletName = localStorage.getItem(this.localStorageKey);
+    const walletName = localStorage.getItem(this._localStorageKey);
     this.selectWallet(
       walletName ? (walletName as WalletName) : WalletName.Sollet
     );
   }
 
-  readonly handleAutoConnect = this.effect(() => {
+  readonly autoConnect = this.effect(() => {
     return combineLatest([this.adapter$, this.ready$]).pipe(
-      filter(([adapter, ready]) => this.autoConnect && adapter && ready),
+      filter(([adapter, ready]) => this._autoConnect && adapter && ready),
       tap(() => this.dispatcher.next({ type: 'connect' }))
     );
   });
