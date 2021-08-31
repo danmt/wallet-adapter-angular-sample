@@ -112,14 +112,14 @@ export class WalletsStore extends ComponentStore<WalletsState> {
     );
   });
 
-  readonly handleDisconnect = this.effect(() => {
-    return this.actions$.pipe(
-      filter((action) => action.type === 'disconnect'),
+  readonly disconnect = this.effect((action$: Observable<void>) => {
+    return action$.pipe(
       concatMap(() =>
-        of(null).pipe(withLatestFrom(this.adapter$, (_, adapter) => adapter))
+        of(null).pipe(withLatestFrom(this.state$, (_, state) => state))
       ),
+      filter(({ disconnecting }) => !disconnecting),
       tap(() => this.patchState({ disconnecting: true })),
-      concatMap((adapter) =>
+      concatMap(({ adapter }) =>
         from(defer(() => adapter.disconnect())).pipe(
           tap(() => this.patchState({ disconnecting: false })),
           catchError(() => of(null))
@@ -218,14 +218,6 @@ export class WalletsStore extends ComponentStore<WalletsState> {
       }
 
       this.dispatcher.next({ type: 'connect' });
-    }
-  }
-
-  disconnect() {
-    const { disconnecting } = this.get();
-
-    if (!disconnecting) {
-      this.dispatcher.next({ type: 'disconnect' });
     }
   }
 
