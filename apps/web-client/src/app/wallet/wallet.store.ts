@@ -35,14 +35,14 @@ import {
   SignTransactionNotFoundError,
   WalletNotSelectedError,
 } from './wallet.errors';
-import { WALLET_OPTIONS } from './wallet.tokens';
-import { WalletOptions, WalletState } from './wallet.types';
+import { WALLET_CONFIG } from './wallet.tokens';
+import { WalletConfig, WalletState } from './wallet.types';
 
 @Injectable()
 export class WalletStore extends ComponentStore<WalletState> {
-  private readonly _autoConnect = this._options.config?.autoConnect || false;
+  private readonly _autoConnect = this._config?.autoConnect || false;
   private readonly _localStorageKey =
-    this._options.config?.localStorageKey || 'walletName';
+    this._config?.localStorageKey || 'walletName';
   readonly wallets$ = this.select((state) => state.wallets);
   readonly selectedWallet$ = this.select((state) => state.selectedWallet);
   readonly connected$ = this.select((state) => state.connected);
@@ -62,11 +62,11 @@ export class WalletStore extends ComponentStore<WalletState> {
   );
 
   constructor(
-    @Inject(WALLET_OPTIONS)
-    private _options: WalletOptions
+    @Inject(WALLET_CONFIG)
+    private _config: WalletConfig
   ) {
     super({
-      wallets: _options.wallets,
+      wallets: _config.wallets,
       selectedWallet: null,
       wallet: null,
       adapter: null,
@@ -79,9 +79,13 @@ export class WalletStore extends ComponentStore<WalletState> {
     });
 
     const walletName = localStorage.getItem(this._localStorageKey);
-    this.selectWallet(
-      walletName ? (walletName as WalletName) : WalletName.Sollet
-    );
+    const wallet = _config.wallets.find(({ name }) => name === walletName);
+
+    if (wallet) {
+      this.selectWallet(walletName as WalletName);
+    } else if (_config.wallets.length > 0) {
+      this.selectWallet(_config.wallets[0].name);
+    }
   }
 
   readonly autoConnect = this.effect(() => {

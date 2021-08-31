@@ -1,7 +1,5 @@
 import { InjectionToken } from '@angular/core';
 
-import { WalletOptions } from './wallet.types';
+import { WalletConfig } from './wallet.types';
 
-export const WALLET_OPTIONS = new InjectionToken<WalletOptions>(
-  'walletOptions'
-);
+export const WALLET_CONFIG = new InjectionToken<WalletConfig>('walletConfig');

@@ -1,7 +1,6 @@
 import { InjectionToken } from '@angular/core';
+import { ConnectionConfig } from '@solana/web3.js';
 
-import { ConnectionOptions } from './connection.types';
-
-export const CONNECTION_OPTIONS = new InjectionToken<ConnectionOptions>(
-  'connectionOptions'
+export const CONNECTION_CONFIG = new InjectionToken<ConnectionConfig>(
+  'connectionConfig'
 );

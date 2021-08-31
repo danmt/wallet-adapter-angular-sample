@@ -19,11 +19,7 @@ export interface WalletState {
 }
 
 export interface WalletConfig {
+  wallets: Wallet[];
   localStorageKey?: string;
   autoConnect?: boolean;
-}
-
-export interface WalletOptions {
-  wallets: Wallet[];
-  config: WalletConfig;
 }

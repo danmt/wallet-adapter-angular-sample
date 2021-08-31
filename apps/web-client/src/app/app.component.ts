@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import {
   getPhantomWallet,
   getSolletWallet,
@@ -9,6 +9,7 @@ import { defer, from } from 'rxjs';
 import { concatMap, first } from 'rxjs/operators';
 
 import { connectionProvider, ConnectionStore } from './connection';
+import { isNotNull } from './operators';
 import { walletProvider, WalletStore } from './wallet';
 
 @Component({
@@ -74,11 +75,11 @@ import { walletProvider, WalletStore } from './wallet';
   `,
   styles: [],
   viewProviders: [
-    ...walletProvider([getSolletWallet(), getPhantomWallet()]),
-    ...connectionProvider('https://api.devnet.solana.com'),
+    ...walletProvider({ wallets: [getSolletWallet(), getPhantomWallet()] }),
+    ...connectionProvider(),
   ],
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
   connection$ = this.connectionStore.connection$;
   wallets$ = this.walletStore.wallets$;
   selectedWallet$ = this.walletStore.selectedWallet$;
@@ -92,6 +93,10 @@ export class AppComponent {
     private connectionStore: ConnectionStore,
     private walletStore: WalletStore
   ) {}
+
+  ngOnInit() {
+    this.connectionStore.setEndpoint('https://api.devnet.solana.com');
+  }
 
   onConnect() {
     this.walletStore.connect();
@@ -109,6 +114,7 @@ export class AppComponent {
     this.connection$
       .pipe(
         first(),
+        isNotNull,
         concatMap((connection) =>
           this.walletStore.sendTransaction(
             new Transaction().add(
@@ -128,6 +134,8 @@ export class AppComponent {
   onSignTransaction(fromPubkey: PublicKey) {
     this.connection$
       .pipe(
+        first(),
+        isNotNull,
         concatMap((connection) =>
           from(defer(() => connection.getRecentBlockhash()))
         ),
@@ -155,6 +163,7 @@ export class AppComponent {
     this.connection$
       .pipe(
         first(),
+        isNotNull,
         concatMap((connection) =>
           from(defer(() => connection.getRecentBlockhash()))
         ),
