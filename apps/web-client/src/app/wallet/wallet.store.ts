@@ -234,6 +234,12 @@ export class WalletStore extends ComponentStore<WalletState> {
     );
   });
 
+  private logError = (error: unknown) => console.error(error);
+
+  setErrorHandler(errorHandler: (error: unknown) => void) {
+    this.logError = errorHandler;
+  }
+
   sendTransaction(
     transaction: Transaction,
     connection: Connection,
@@ -304,9 +310,5 @@ export class WalletStore extends ComponentStore<WalletState> {
         ).pipe(map((transactions) => transactions as Transaction[]));
       })
     );
-  }
-
-  private logError(error: unknown) {
-    console.error(error);
   }
 }
