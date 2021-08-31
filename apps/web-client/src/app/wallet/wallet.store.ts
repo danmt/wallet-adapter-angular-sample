@@ -283,8 +283,7 @@ export class WalletStore extends ComponentStore<WalletState> {
         }
 
         return from(defer(() => adapter.signTransaction(transaction))).pipe(
-          map((transaction) => transaction as Transaction),
-          catchError(() => EMPTY)
+          map((transaction) => transaction as Transaction)
         );
       })
     );
@@ -308,10 +307,7 @@ export class WalletStore extends ComponentStore<WalletState> {
 
         return from(
           defer(() => adapter.signAllTransactions(transactions))
-        ).pipe(
-          map((transactions) => transactions as Transaction[]),
-          catchError(() => EMPTY)
-        );
+        ).pipe(map((transactions) => transactions as Transaction[]));
       })
     );
   }
