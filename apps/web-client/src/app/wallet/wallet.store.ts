@@ -46,6 +46,8 @@ export class WalletStore extends ComponentStore<WalletState> {
   readonly wallets$ = this.select((state) => state.wallets);
   readonly selectedWallet$ = this.select((state) => state.selectedWallet);
   readonly connected$ = this.select((state) => state.connected);
+  readonly connecting$ = this.select((state) => state.connecting);
+  readonly disconnecting$ = this.select((state) => state.disconnecting);
   readonly wallet$ = this.select((state) => state.wallet);
   readonly adapter$ = this.select((state) => state.adapter);
   readonly publicKey$ = this.select((state) => state.publicKey);
@@ -90,7 +92,7 @@ export class WalletStore extends ComponentStore<WalletState> {
 
   readonly autoConnect = this.effect(() => {
     return combineLatest([this.adapter$, this.ready$]).pipe(
-      filter(([adapter, ready]) => this._autoConnect && adapter && ready),
+      filter(([adapter, ready]) => this._autoConnect && !!adapter && ready),
       observeOn(asyncScheduler),
       tap(() => this.connect())
     );
@@ -133,9 +135,15 @@ export class WalletStore extends ComponentStore<WalletState> {
       ),
       filter(({ disconnecting }) => !disconnecting),
       tap(() => this.patchState({ disconnecting: true })),
-      concatMap(({ adapter }) =>
-        from(defer(() => adapter.disconnect())).pipe(catchError(() => of(null)))
-      ),
+      concatMap(({ adapter }) => {
+        if (!adapter) {
+          return EMPTY;
+        } else {
+          return from(defer(() => adapter.disconnect())).pipe(
+            catchError(() => EMPTY)
+          );
+        }
+      }),
       tap(() => this.patchState({ disconnecting: false }))
     );
   });
@@ -147,20 +155,31 @@ export class WalletStore extends ComponentStore<WalletState> {
         ([walletName, { selectedWallet }]) => walletName !== selectedWallet
       ),
       concatMap(([walletName, { adapter, wallets }]) =>
-        (adapter ? from(defer(() => adapter.disconnect())) : of(null)).pipe(
-          tap(() => {
-            localStorage.setItem(this._localStorageKey, walletName);
-            const wallet = wallets.find(({ name }) => name === walletName);
-            const adapter = wallet ? wallet.adapter() : null;
-            this.patchState({
-              selectedWallet: walletName as WalletName,
-              adapter,
-              wallet,
-              ready: adapter.ready || false,
-            });
-          }),
-          catchError(() => of(null))
-        )
+        of(adapter)
+          .pipe(
+            concatMap((adapter) => {
+              if (!adapter) {
+                return EMPTY;
+              } else {
+                return from(defer(() => adapter.disconnect())).pipe(
+                  catchError(() => EMPTY)
+                );
+              }
+            })
+          )
+          .pipe(
+            tap(() => {
+              localStorage.setItem(this._localStorageKey, walletName);
+              const wallet = wallets.find(({ name }) => name === walletName);
+              const adapter = wallet ? wallet.adapter() : null;
+              this.patchState({
+                selectedWallet: walletName as WalletName,
+                adapter,
+                wallet,
+                ready: adapter?.ready || false,
+              });
+            })
+          )
       )
     );
   });
@@ -192,6 +211,7 @@ export class WalletStore extends ComponentStore<WalletState> {
           connected: false,
           connecting: false,
           disconnecting: false,
+          autoApprove: false,
           publicKey: null,
         })
       )
