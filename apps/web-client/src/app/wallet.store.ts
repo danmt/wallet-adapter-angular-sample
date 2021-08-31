@@ -290,10 +290,6 @@ export class WalletsStore extends ComponentStore<WalletsState> {
   }
 
   private logError(error: unknown) {
-    if (typeof error === 'string') {
-      console.error(error);
-    } else {
-      console.error(error);
-    }
+    console.error(error);
   }
 }
