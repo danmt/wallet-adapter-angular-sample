@@ -137,10 +137,10 @@ export class WalletStore extends ComponentStore<WalletState> {
       tap(() => this.patchState({ disconnecting: true })),
       concatMap(({ adapter }) => {
         if (!adapter) {
-          return EMPTY;
+          return of(null);
         } else {
           return from(defer(() => adapter.disconnect())).pipe(
-            catchError(() => EMPTY)
+            catchError(() => of(null))
           );
         }
       }),
@@ -159,10 +159,10 @@ export class WalletStore extends ComponentStore<WalletState> {
           .pipe(
             concatMap((adapter) => {
               if (!adapter) {
-                return EMPTY;
+                return of(null);
               } else {
                 return from(defer(() => adapter.disconnect())).pipe(
-                  catchError(() => EMPTY)
+                  catchError(() => of(null))
                 );
               }
             })
@@ -283,7 +283,8 @@ export class WalletStore extends ComponentStore<WalletState> {
         }
 
         return from(defer(() => adapter.signTransaction(transaction))).pipe(
-          map((transaction) => transaction as Transaction)
+          map((transaction) => transaction as Transaction),
+          catchError(() => EMPTY)
         );
       })
     );
@@ -307,7 +308,10 @@ export class WalletStore extends ComponentStore<WalletState> {
 
         return from(
           defer(() => adapter.signAllTransactions(transactions))
-        ).pipe(map((transactions) => transactions as Transaction[]));
+        ).pipe(
+          map((transactions) => transactions as Transaction[]),
+          catchError(() => EMPTY)
+        );
       })
     );
   }
