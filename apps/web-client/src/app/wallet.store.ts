@@ -1,18 +1,14 @@
-import { Inject, Injectable, Optional } from '@angular/core';
+import { Inject, Injectable } from '@angular/core';
 import { ComponentStore } from '@ngrx/component-store';
 import {
   SendTransactionOptions,
   WalletNotConnectedError,
   WalletNotReadyError,
 } from '@solana/wallet-adapter-base';
-import {
-  getPhantomWallet,
-  getSolletWallet,
-  WalletName,
-} from '@solana/wallet-adapter-wallets';
+import { WalletName } from '@solana/wallet-adapter-wallets';
 import { Connection, Transaction } from '@solana/web3.js';
 import {
-  BehaviorSubject,
+  asyncScheduler,
   combineLatest,
   defer,
   EMPTY,
@@ -27,6 +23,7 @@ import {
   filter,
   first,
   map,
+  observeOn,
   switchMap,
   tap,
   withLatestFrom,
@@ -34,36 +31,33 @@ import {
 
 import { fromAdapterEvent, isNotNull } from './operators';
 import {
-  Action,
-  LOCAL_STORAGE_WALLET_KEY,
   SignAllTransactionsNotFoundError,
   SignTransactionNotFoundError,
-  WALLET_AUTO_CONNECT,
+  WALLET_CONFIG,
+  WalletConfig,
   WalletNotSelectedError,
   WalletsState,
 } from './utils';
 
 @Injectable()
 export class WalletsStore extends ComponentStore<WalletsState> {
-  private readonly dispatcher = new BehaviorSubject<Action>({ type: 'init' });
-  private readonly actions$ = this.dispatcher.asObservable();
+  private readonly _autoConnect = this._config.autoConnect || false;
+  private readonly _localStorageKey =
+    this._config.localStorageKey || 'walletName';
   readonly wallets$ = this.select((state) => state.wallets);
   readonly selectedWallet$ = this.select((state) => state.selectedWallet);
   readonly connected$ = this.select((state) => state.connected);
+  readonly wallet$ = this.select((state) => state.wallet);
   readonly adapter$ = this.select((state) => state.adapter);
   readonly publicKey$ = this.select((state) => state.publicKey);
   readonly ready$ = this.select((state) => state.ready);
 
   constructor(
-    @Optional()
-    @Inject(LOCAL_STORAGE_WALLET_KEY)
-    private _localStorageKey: string,
-    @Optional()
-    @Inject(WALLET_AUTO_CONNECT)
-    private _autoConnect: boolean
+    @Inject(WALLET_CONFIG)
+    private _config: WalletConfig
   ) {
     super({
-      wallets: [getSolletWallet(), getPhantomWallet()],
+      wallets: _config.wallets,
       selectedWallet: null,
       wallet: null,
       adapter: null,
@@ -75,14 +69,6 @@ export class WalletsStore extends ComponentStore<WalletsState> {
       autoApprove: false,
     });
 
-    if (this._localStorageKey === null) {
-      this._localStorageKey = 'walletName';
-    }
-
-    if (this._autoConnect === null) {
-      this._autoConnect = false;
-    }
-
     const walletName = localStorage.getItem(this._localStorageKey);
     this.selectWallet(
       walletName ? (walletName as WalletName) : WalletName.Sollet
@@ -92,7 +78,8 @@ export class WalletsStore extends ComponentStore<WalletsState> {
   readonly autoConnect = this.effect(() => {
     return combineLatest([this.adapter$, this.ready$]).pipe(
       filter(([adapter, ready]) => this._autoConnect && adapter && ready),
-      tap(() => this.dispatcher.next({ type: 'connect' }))
+      observeOn(asyncScheduler),
+      tap(() => this.connect())
     );
   });
 
@@ -134,11 +121,9 @@ export class WalletsStore extends ComponentStore<WalletsState> {
       filter(({ disconnecting }) => !disconnecting),
       tap(() => this.patchState({ disconnecting: true })),
       concatMap(({ adapter }) =>
-        from(defer(() => adapter.disconnect())).pipe(
-          tap(() => this.patchState({ disconnecting: false })),
-          catchError(() => of(null))
-        )
-      )
+        from(defer(() => adapter.disconnect())).pipe(catchError(() => of(null)))
+      ),
+      tap(() => this.patchState({ disconnecting: false }))
     );
   });
 
@@ -146,13 +131,13 @@ export class WalletsStore extends ComponentStore<WalletsState> {
     return walletName$.pipe(
       isNotNull,
       concatMap((action) => of(action).pipe(withLatestFrom(this.state$))),
-
       filter(
         ([walletName, { selectedWallet }]) => walletName !== selectedWallet
       ),
       concatMap(([walletName, { adapter, wallets }]) =>
         (adapter ? from(defer(() => adapter.disconnect())) : of(null)).pipe(
           tap(() => {
+            localStorage.setItem(this._localStorageKey, walletName);
             const wallet = wallets.find(({ name }) => name === walletName);
             const adapter = wallet ? wallet.adapter() : null;
             this.patchState({

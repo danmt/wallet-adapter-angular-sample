@@ -1,29 +1,9 @@
 import {
-  SendTransactionOptions,
   SignerWalletAdapter,
   WalletAdapter,
 } from '@solana/wallet-adapter-base';
 import { Wallet, WalletName } from '@solana/wallet-adapter-wallets';
-import { Connection, PublicKey, Transaction } from '@solana/web3.js';
-
-export type WalletEvent =
-  | 'init'
-  | 'connect'
-  | 'disconnect'
-  | 'sendTransaction'
-  | 'signTransaction'
-  | 'signAllTransactions';
-
-export interface SendTransactionPayload {
-  transaction: Transaction;
-  connection: Connection;
-  options?: SendTransactionOptions;
-}
-
-export interface Action {
-  type: WalletEvent;
-  payload?: unknown;
-}
+import { PublicKey } from '@solana/web3.js';
 
 export interface WalletsState {
   wallets: Wallet[];
@@ -36,4 +16,10 @@ export interface WalletsState {
   ready: boolean;
   publicKey: PublicKey | null;
   autoApprove: boolean;
+}
+
+export interface WalletConfig {
+  wallets: Wallet[];
+  localStorageKey?: string;
+  autoConnect?: boolean;
 }

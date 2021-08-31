@@ -1,7 +1,4 @@
 import { InjectionToken } from '@angular/core';
+import { WalletConfig } from './types';
 
-export const LOCAL_STORAGE_WALLET_KEY = new InjectionToken(
-  'localStorageWalletKey'
-);
-
-export const WALLET_AUTO_CONNECT = new InjectionToken('walletAutoConnect');
+export const WALLET_CONFIG = new InjectionToken<WalletConfig>('walletConfig');

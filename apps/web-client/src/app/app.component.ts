@@ -1,5 +1,9 @@
 import { Component } from '@angular/core';
-import { WalletName } from '@solana/wallet-adapter-wallets';
+import {
+  getPhantomWallet,
+  getSolletWallet,
+  WalletName,
+} from '@solana/wallet-adapter-wallets';
 import {
   Connection,
   PublicKey,
@@ -9,6 +13,7 @@ import {
 import { defer, from } from 'rxjs';
 import { concatMap } from 'rxjs/operators';
 
+import { WALLET_CONFIG } from './utils';
 import { WalletsStore } from './wallet.store';
 
 @Component({
@@ -73,7 +78,17 @@ import { WalletsStore } from './wallet.store';
     </main>
   `,
   styles: [],
-  viewProviders: [WalletsStore],
+  viewProviders: [
+    {
+      provide: WALLET_CONFIG,
+      useValue: {
+        wallets: [getSolletWallet(), getPhantomWallet()],
+        autoConnect: true,
+        localStorageKey: 'wallet2',
+      },
+    },
+    WalletsStore,
+  ],
 })
 export class AppComponent {
   connection = new Connection('https://api.devnet.solana.com');
