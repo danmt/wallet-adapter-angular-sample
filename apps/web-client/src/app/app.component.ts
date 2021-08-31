@@ -6,6 +6,8 @@ import {
   SystemProgram,
   Transaction,
 } from '@solana/web3.js';
+import { defer, from } from 'rxjs';
+import { concatMap } from 'rxjs/operators';
 
 import { WalletsStore } from './wallet.store';
 
@@ -98,48 +100,65 @@ export class AppComponent {
   }
 
   onSendTransaction(fromPubkey: PublicKey) {
-    const transaction = new Transaction().add(
-      SystemProgram.transfer({
-        fromPubkey,
-        toPubkey: new PublicKey(this.recipient),
-        lamports: this.lamports,
-      })
-    );
-
-    this.walletsStore.sendTransaction(transaction, this.connection);
-  }
-
-  async onSignTransaction(fromPubkey: PublicKey) {
-    const recentBlockhash = await this.connection.getRecentBlockhash();
-    const transaction = new Transaction({
-      recentBlockhash: recentBlockhash.blockhash,
-      feePayer: fromPubkey,
-    }).add(
-      SystemProgram.transfer({
-        fromPubkey,
-        toPubkey: new PublicKey(this.recipient),
-        lamports: this.lamports,
-      })
-    );
-
-    this.walletsStore.signTransaction(transaction);
-  }
-
-  async onSignAllTransactions(fromPubkey: PublicKey) {
-    const recentBlockhash = await this.connection.getRecentBlockhash();
-    const transactions = new Array(3).fill(0).map(() =>
-      new Transaction({
-        recentBlockhash: recentBlockhash.blockhash,
-        feePayer: fromPubkey,
-      }).add(
-        SystemProgram.transfer({
-          fromPubkey,
-          toPubkey: new PublicKey(this.recipient),
-          lamports: this.lamports,
-        })
+    this.walletsStore
+      .sendTransaction(
+        new Transaction().add(
+          SystemProgram.transfer({
+            fromPubkey,
+            toPubkey: new PublicKey(this.recipient),
+            lamports: this.lamports,
+          })
+        ),
+        this.connection
       )
-    );
+      .subscribe((signature) => console.log(`Transaction sent (${signature})`));
+  }
 
-    this.walletsStore.signAllTransactions(transactions);
+  onSignTransaction(fromPubkey: PublicKey) {
+    from(defer(() => this.connection.getRecentBlockhash()))
+      .pipe(
+        concatMap(({ blockhash }) =>
+          this.walletsStore.signTransaction(
+            new Transaction({
+              recentBlockhash: blockhash,
+              feePayer: fromPubkey,
+            }).add(
+              SystemProgram.transfer({
+                fromPubkey,
+                toPubkey: new PublicKey(this.recipient),
+                lamports: this.lamports,
+              })
+            )
+          )
+        )
+      )
+      .subscribe((transaction) =>
+        console.log('Transaction signed', transaction)
+      );
+  }
+
+  onSignAllTransactions(fromPubkey: PublicKey) {
+    from(defer(() => this.connection.getRecentBlockhash()))
+      .pipe(
+        concatMap(({ blockhash }) =>
+          this.walletsStore.signAllTransactions(
+            new Array(3).fill(0).map(() =>
+              new Transaction({
+                recentBlockhash: blockhash,
+                feePayer: fromPubkey,
+              }).add(
+                SystemProgram.transfer({
+                  fromPubkey,
+                  toPubkey: new PublicKey(this.recipient),
+                  lamports: this.lamports,
+                })
+              )
+            )
+          )
+        )
+      )
+      .subscribe((transactions) =>
+        console.log('Transactions signed', transactions)
+      );
   }
 }

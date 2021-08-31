@@ -1,5 +1,5 @@
 import { Inject, Injectable, Optional } from '@angular/core';
-import { ComponentStore, tapResponse } from '@ngrx/component-store';
+import { ComponentStore } from '@ngrx/component-store';
 import {
   SendTransactionOptions,
   WalletNotConnectedError,
@@ -15,14 +15,18 @@ import {
   BehaviorSubject,
   combineLatest,
   defer,
+  EMPTY,
   from,
   Observable,
   of,
+  throwError,
 } from 'rxjs';
 import {
   catchError,
   concatMap,
   filter,
+  first,
+  map,
   switchMap,
   tap,
   withLatestFrom,
@@ -32,7 +36,8 @@ import { fromAdapterEvent, isNotNull } from './operators';
 import {
   Action,
   LOCAL_STORAGE_WALLET_KEY,
-  SendTransactionPayload,
+  SignAllTransactionsNotFoundError,
+  SignTransactionNotFoundError,
   WALLET_AUTO_CONNECT,
   WalletNotSelectedError,
   WalletsState,
@@ -149,56 +154,6 @@ export class WalletsStore extends ComponentStore<WalletsState> {
     );
   });
 
-  readonly handleSendTransaction = this.effect(() => {
-    return this.actions$.pipe(
-      filter((action) => action.type === 'sendTransaction'),
-      concatMap((action) => of(action).pipe(withLatestFrom(this.adapter$))),
-      concatMap(([{ payload }, adapter]) => {
-        const { transaction, connection, options } =
-          payload as SendTransactionPayload;
-
-        return from(
-          defer(() => adapter.sendTransaction(transaction, connection, options))
-        ).pipe(
-          tapResponse(
-            (txId) => console.log(txId),
-            (error) => this.logError(error)
-          )
-        );
-      })
-    );
-  });
-
-  readonly handleSignTransaction = this.effect(() => {
-    return this.actions$.pipe(
-      filter((action) => action.type === 'signTransaction'),
-      concatMap((action) => of(action).pipe(withLatestFrom(this.adapter$))),
-      concatMap(([{ payload: transaction }, adapter]) =>
-        from(defer(() => adapter.signTransaction(transaction))).pipe(
-          tapResponse(
-            (signedTransaction) => console.log(signedTransaction),
-            (error) => this.logError(error)
-          )
-        )
-      )
-    );
-  });
-
-  readonly handleSignAllTransactions = this.effect(() => {
-    return this.actions$.pipe(
-      filter((action) => action.type === 'signAllTransactions'),
-      concatMap((action) => of(action).pipe(withLatestFrom(this.adapter$))),
-      concatMap(([{ payload: transactions }, adapter]) =>
-        from(defer(() => adapter.signAllTransactions(transactions))).pipe(
-          tapResponse(
-            (signedTransactions) => console.log(signedTransactions),
-            (error) => this.logError(error)
-          )
-        )
-      )
-    );
-  });
-
   readonly onConnect = this.effect(() => {
     return this.adapter$.pipe(
       isNotNull,
@@ -278,59 +233,72 @@ export class WalletsStore extends ComponentStore<WalletsState> {
     transaction: Transaction,
     connection: Connection,
     options?: SendTransactionOptions
-  ) {
-    const { adapter, connected } = this.get();
+  ): Observable<string> {
+    return this.state$.pipe(
+      first(),
+      concatMap(({ adapter, connected }) => {
+        if (!adapter) {
+          return throwError(new WalletNotSelectedError());
+        }
 
-    if (!adapter) {
-      throw new WalletNotSelectedError();
-    }
+        if (!connected) {
+          return throwError(new WalletNotConnectedError());
+        }
 
-    if (!connected) {
-      throw new WalletNotConnectedError();
-    }
-
-    this.dispatcher.next({
-      type: 'sendTransaction',
-      payload: { transaction, connection, options },
-    });
+        return from(
+          defer(() => adapter.sendTransaction(transaction, connection, options))
+        ).pipe(
+          map((txId) => txId as string),
+          catchError(() => EMPTY)
+        );
+      })
+    );
   }
 
-  signTransaction(transaction: Transaction) {
-    const { adapter, connected } = this.get();
+  signTransaction(transaction: Transaction): Observable<Transaction> {
+    return this.state$.pipe(
+      first(),
+      concatMap(({ adapter, connected }) => {
+        if (!adapter) {
+          return throwError(new WalletNotSelectedError());
+        }
 
-    if (!adapter) {
-      throw new WalletNotSelectedError();
-    }
+        if (!connected) {
+          return throwError(new WalletNotConnectedError());
+        }
 
-    if (!connected) {
-      throw new WalletNotConnectedError();
-    }
+        if (!('signTransaction' in adapter)) {
+          return throwError(new SignTransactionNotFoundError());
+        }
 
-    if ('signTransaction' in adapter) {
-      this.dispatcher.next({
-        type: 'signTransaction',
-        payload: transaction,
-      });
-    }
+        return from(defer(() => adapter.signTransaction(transaction))).pipe(
+          map((transaction) => transaction as Transaction)
+        );
+      })
+    );
   }
 
-  signAllTransactions(transactions: Transaction[]) {
-    const { adapter, connected } = this.get();
+  signAllTransactions(transactions: Transaction[]): Observable<Transaction[]> {
+    return this.state$.pipe(
+      first(),
+      concatMap(({ adapter, connected }) => {
+        if (!adapter) {
+          return throwError(new WalletNotSelectedError());
+        }
 
-    if (!adapter) {
-      throw new WalletNotSelectedError();
-    }
+        if (!connected) {
+          return throwError(new WalletNotConnectedError());
+        }
 
-    if (!connected) {
-      throw new WalletNotConnectedError();
-    }
+        if (!('signAllTransactions' in adapter)) {
+          return throwError(new SignAllTransactionsNotFoundError());
+        }
 
-    if ('signAllTransactions' in adapter) {
-      this.dispatcher.next({
-        type: 'signAllTransactions',
-        payload: transactions,
-      });
-    }
+        return from(
+          defer(() => adapter.signAllTransactions(transactions))
+        ).pipe(map((transactions) => transactions as Transaction[]));
+      })
+    );
   }
 
   private logError(error: unknown) {
