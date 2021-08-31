@@ -96,19 +96,33 @@ export class WalletsStore extends ComponentStore<WalletsState> {
     );
   });
 
-  readonly handleConnect = this.effect(() => {
-    return this.actions$.pipe(
-      filter((action) => action.type === 'connect'),
+  readonly connect = this.effect((action$: Observable<void>) => {
+    return action$.pipe(
       concatMap(() =>
-        of(null).pipe(withLatestFrom(this.adapter$, (_, adapter) => adapter))
+        of(null).pipe(withLatestFrom(this.state$, (_, state) => state))
+      ),
+      filter(
+        ({ connected, connecting, disconnecting }) =>
+          !connected && !connecting && !disconnecting
       ),
       tap(() => this.patchState({ connecting: true })),
-      concatMap((adapter) =>
-        from(defer(() => adapter.connect())).pipe(
-          tap(() => this.patchState({ connecting: false })),
+      concatMap(({ adapter, wallet, ready }) => {
+        if (!wallet || !adapter) {
+          this.logError(new WalletNotSelectedError());
+          return of(null);
+        }
+
+        if (!ready) {
+          window.open(wallet.url, '_blank');
+          this.logError(new WalletNotReadyError());
+          return of(null);
+        }
+
+        return from(defer(() => adapter.connect())).pipe(
           catchError(() => of(null))
-        )
-      )
+        );
+      }),
+      tap(() => this.patchState({ connecting: false }))
     );
   });
 
@@ -202,24 +216,6 @@ export class WalletsStore extends ComponentStore<WalletsState> {
       tap((error) => this.logError(error))
     );
   });
-
-  connect() {
-    const { ready, wallet, adapter, connected, connecting, disconnecting } =
-      this.get();
-
-    if (!connected && !connecting && !disconnecting) {
-      if (!wallet || !adapter) {
-        throw new WalletNotSelectedError();
-      }
-
-      if (!ready) {
-        window.open(wallet.url, '_blank');
-        throw new WalletNotReadyError();
-      }
-
-      this.dispatcher.next({ type: 'connect' });
-    }
-  }
 
   sendTransaction(
     transaction: Transaction,
