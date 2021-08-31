@@ -13,7 +13,7 @@ import {
 import { defer, from } from 'rxjs';
 import { concatMap } from 'rxjs/operators';
 
-import { WALLET_CONFIG } from './utils';
+import { walletProvider } from './wallet.provider';
 import { WalletsStore } from './wallet.store';
 
 @Component({
@@ -78,17 +78,7 @@ import { WalletsStore } from './wallet.store';
     </main>
   `,
   styles: [],
-  viewProviders: [
-    {
-      provide: WALLET_CONFIG,
-      useValue: {
-        wallets: [getSolletWallet(), getPhantomWallet()],
-        autoConnect: true,
-        localStorageKey: 'wallet2',
-      },
-    },
-    WalletsStore,
-  ],
+  viewProviders: [...walletProvider([getSolletWallet(), getPhantomWallet()])],
 })
 export class AppComponent {
   connection = new Connection('https://api.devnet.solana.com');
