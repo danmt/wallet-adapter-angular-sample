@@ -74,6 +74,7 @@ import { isNotNull } from './operators';
         <button (click)="onSignAllTransactions(publicKey)">
           Sign All Transactions
         </button>
+        <button (click)="onSignMessage()">Sign Message</button>
       </section>
     </main>
   `,
@@ -193,5 +194,13 @@ export class AppComponent implements OnInit {
       .subscribe((transactions) =>
         console.log('Transactions signed', transactions)
       );
+  }
+
+  onSignMessage() {
+    this.walletStore
+      .signMessage(new TextEncoder().encode('Hello world!'))
+      .subscribe((message) => {
+        console.log('Message signed', new TextDecoder().decode(message));
+      });
   }
 }
