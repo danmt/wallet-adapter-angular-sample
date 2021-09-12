@@ -1,18 +1,21 @@
 import { Component, OnInit } from '@angular/core';
 import {
-  connectionProvider,
   ConnectionStore,
-  walletProvider,
   WalletStore,
-} from '@solana/wallet-adapter-angular';
+  WALLET_CONFIG,
+} from '@danmt/wallet-adapter-angular';
 import {
+  getBitpieWallet,
+  getBloctoWallet,
   getPhantomWallet,
+  getSolflareWallet,
   getSolletWallet,
+  getSolongWallet,
   WalletName,
 } from '@solana/wallet-adapter-wallets';
 import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
-import { defer, from } from 'rxjs';
-import { concatMap, first } from 'rxjs/operators';
+import { defer, from, throwError } from 'rxjs';
+import { concatMap, first, map } from 'rxjs/operators';
 
 import { isNotNull } from './operators';
 
@@ -20,7 +23,7 @@ import { isNotNull } from './operators';
   selector: 'wallet-adapter-test-root',
   template: `
     <header>
-      <h1>Wallet adapter test</h1>
+      <h1>@solana/wallet-adapter-angular example</h1>
     </header>
 
     <main>
@@ -28,7 +31,7 @@ import { isNotNull } from './operators';
         <h2>Wallet details</h2>
 
         <select
-          [ngModel]="selectedWallet$ | async"
+          [ngModel]="walletName$ | async"
           (ngModelChange)="onSelectWallet($event)"
         >
           <option
@@ -40,17 +43,11 @@ import { isNotNull } from './operators';
         </select>
 
         <p>
-          Selected provider: {{ selectedWallet$ | async }}
+          Selected provider: {{ walletName$ | async }}
           <ng-container *ngIf="ready$ | async">(READY)</ng-container>
         </p>
         <p>Wallet Key: {{ publicKey$ | async }}</p>
-        <button
-          (click)="onConnect()"
-          *ngIf="(connected$ | async) === false"
-          [disabled]="(ready$ | async) === false"
-        >
-          Connect
-        </button>
+        <button (click)="onConnect()">Connect</button>
         <button (click)="onDisconnect()" *ngIf="connected$ | async">
           Disconnect
         </button>
@@ -80,16 +77,28 @@ import { isNotNull } from './operators';
   `,
   styles: [],
   viewProviders: [
-    ...walletProvider({
-      wallets: [getSolletWallet(), getPhantomWallet()],
-    }),
-    ...connectionProvider(),
+    {
+      provide: WALLET_CONFIG,
+      useValue: {
+        wallets: [
+          getSolletWallet(),
+          getPhantomWallet(),
+          getSolflareWallet(),
+          getSolongWallet(),
+          getBitpieWallet(),
+          getBloctoWallet(),
+        ],
+        autoConnect: true,
+      },
+    },
+    WalletStore,
+    ConnectionStore,
   ],
 })
 export class AppComponent implements OnInit {
   connection$ = this.connectionStore.connection$;
   wallets$ = this.walletStore.wallets$;
-  selectedWallet$ = this.walletStore.selectedWallet$;
+  walletName$ = this.walletStore.name$;
   connected$ = this.walletStore.connected$;
   publicKey$ = this.walletStore.publicKey$;
   ready$ = this.walletStore.ready$;
@@ -102,7 +111,17 @@ export class AppComponent implements OnInit {
   ) {}
 
   ngOnInit() {
+    this.walletStore.error$.subscribe((error) => console.log(error));
+
     this.connectionStore.setEndpoint('https://api.devnet.solana.com');
+
+    this.walletStore.anchorWallet$.subscribe((anchorWallet) => {
+      if (!anchorWallet) {
+        console.error('Current wallet cannot have an anchorWallet');
+      } else {
+        console.log(anchorWallet);
+      }
+    });
   }
 
   onConnect() {
@@ -144,39 +163,8 @@ export class AppComponent implements OnInit {
         first(),
         isNotNull,
         concatMap((connection) =>
-          from(defer(() => connection.getRecentBlockhash()))
-        ),
-        concatMap(({ blockhash }) =>
-          this.walletStore.signTransaction(
-            new Transaction({
-              recentBlockhash: blockhash,
-              feePayer: fromPubkey,
-            }).add(
-              SystemProgram.transfer({
-                fromPubkey,
-                toPubkey: new PublicKey(this.recipient),
-                lamports: this.lamports,
-              })
-            )
-          )
-        )
-      )
-      .subscribe((transaction) =>
-        console.log('Transaction signed', transaction)
-      );
-  }
-
-  onSignAllTransactions(fromPubkey: PublicKey) {
-    this.connection$
-      .pipe(
-        first(),
-        isNotNull,
-        concatMap((connection) =>
-          from(defer(() => connection.getRecentBlockhash()))
-        ),
-        concatMap(({ blockhash }) =>
-          this.walletStore.signAllTransactions(
-            new Array(3).fill(0).map(() =>
+          from(defer(() => connection.getRecentBlockhash())).pipe(
+            map(({ blockhash }) =>
               new Transaction({
                 recentBlockhash: blockhash,
                 feePayer: fromPubkey,
@@ -189,18 +177,79 @@ export class AppComponent implements OnInit {
               )
             )
           )
-        )
+        ),
+        concatMap((transaction) => {
+          const signTransaction$ =
+            this.walletStore.signTransaction(transaction);
+
+          if (!signTransaction$) {
+            return throwError(
+              new Error('Sign transaction method is not defined')
+            );
+          }
+
+          return signTransaction$;
+        })
       )
-      .subscribe((transactions) =>
-        console.log('Transactions signed', transactions)
+      .subscribe(
+        (transaction) => console.log('Transaction signed', transaction),
+        (error) => console.error(error)
+      );
+  }
+
+  onSignAllTransactions(fromPubkey: PublicKey) {
+    this.connection$
+      .pipe(
+        first(),
+        isNotNull,
+        concatMap((connection) =>
+          from(defer(() => connection.getRecentBlockhash())).pipe(
+            map(({ blockhash }) =>
+              new Array(3).fill(0).map(() =>
+                new Transaction({
+                  recentBlockhash: blockhash,
+                  feePayer: fromPubkey,
+                }).add(
+                  SystemProgram.transfer({
+                    fromPubkey,
+                    toPubkey: new PublicKey(this.recipient),
+                    lamports: this.lamports,
+                  })
+                )
+              )
+            )
+          )
+        ),
+        concatMap((transactions) => {
+          const signAllTransaction$ =
+            this.walletStore.signAllTransactions(transactions);
+
+          if (!signAllTransaction$) {
+            return throwError(
+              new Error('Sign all transactions method is not defined')
+            );
+          }
+
+          return signAllTransaction$;
+        })
+      )
+      .subscribe(
+        (transactions) => console.log('Transactions signed', transactions),
+        (error) => console.error(error)
       );
   }
 
   onSignMessage() {
-    this.walletStore
-      .signMessage(new TextEncoder().encode('Hello world!'))
-      .subscribe((message) => {
-        console.log('Message signed', new TextDecoder().decode(message));
-      });
+    const signMessage$ = this.walletStore.signMessage(
+      new TextEncoder().encode('Hello world!')
+    );
+
+    if (!signMessage$) {
+      return console.error(new Error('Sign message method is not defined'));
+    }
+
+    signMessage$.pipe(first()).subscribe((message) => {
+      console.log('Message signed', new TextDecoder().decode(message));
+    });
   }
 }
