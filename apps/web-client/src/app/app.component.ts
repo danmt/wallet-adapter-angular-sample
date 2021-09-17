@@ -1,8 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import {
   ConnectionStore,
-  WalletStore,
   WALLET_CONFIG,
+  WalletStore,
 } from '@danmt/wallet-adapter-angular';
 import {
   getBitpieWallet,
@@ -14,6 +14,7 @@ import {
   WalletName,
 } from '@solana/wallet-adapter-wallets';
 import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
+import bs58 from 'bs58';
 import { defer, from, throwError } from 'rxjs';
 import { concatMap, first, map } from 'rxjs/operators';
 
@@ -34,6 +35,7 @@ import { isNotNull } from './operators';
           [ngModel]="walletName$ | async"
           (ngModelChange)="onSelectWallet($event)"
         >
+          <option [ngValue]="null">Not selected</option>
           <option
             *ngFor="let wallet of wallets$ | async"
             [ngValue]="wallet.name"
@@ -47,7 +49,13 @@ import { isNotNull } from './operators';
           <ng-container *ngIf="ready$ | async">(READY)</ng-container>
         </p>
         <p>Wallet Key: {{ publicKey$ | async }}</p>
-        <button (click)="onConnect()">Connect</button>
+        <button
+          (click)="onConnect()"
+          *ngIf="(connected$ | async) === false"
+          [disabled]="(ready$ | async) === false"
+        >
+          Connect
+        </button>
         <button (click)="onDisconnect()" *ngIf="connected$ | async">
           Disconnect
         </button>
@@ -111,25 +119,27 @@ export class AppComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.walletStore.error$.subscribe((error) => console.log(error));
+    // this.walletStore.error$.subscribe((error) => console.log(error));
 
     this.connectionStore.setEndpoint('https://api.devnet.solana.com');
 
-    this.walletStore.anchorWallet$.subscribe((anchorWallet) => {
+    /* this.walletStore.anchorWallet$.subscribe((anchorWallet) => {
       if (!anchorWallet) {
-        console.error('Current wallet cannot have an anchorWallet');
+        console.error('Anchor wallet not available');
       } else {
         console.log(anchorWallet);
       }
-    });
+    }); */
+
+    this.walletStore.state$.subscribe((a) => console.log(a));
   }
 
   onConnect() {
-    this.walletStore.connect();
+    this.walletStore.connect().subscribe();
   }
 
   onDisconnect() {
-    this.walletStore.disconnect();
+    this.walletStore.disconnect().subscribe();
   }
 
   onSelectWallet(walletName: WalletName) {
@@ -154,7 +164,10 @@ export class AppComponent implements OnInit {
           )
         )
       )
-      .subscribe((signature) => console.log(`Transaction sent (${signature})`));
+      .subscribe(
+        (signature) => console.log(`Transaction sent (${signature})`),
+        (error) => console.error(error)
+      );
   }
 
   onSignTransaction(fromPubkey: PublicKey) {
@@ -248,8 +261,8 @@ export class AppComponent implements OnInit {
       return console.error(new Error('Sign message method is not defined'));
     }
 
-    signMessage$.pipe(first()).subscribe((message) => {
-      console.log('Message signed', new TextDecoder().decode(message));
+    signMessage$.pipe(first()).subscribe((signature) => {
+      console.log(`Message signature: ${bs58.encode(signature)}`);
     });
   }
 }
