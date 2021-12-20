@@ -1,17 +1,12 @@
 import { Component, OnInit } from '@angular/core';
+import { ConnectionStore, WalletStore } from '@danmt/wallet-adapter-angular';
+import { WalletAdapterNetwork, WalletName } from '@solana/wallet-adapter-base';
 import {
-  ConnectionStore,
-  WALLET_CONFIG,
-  WalletStore,
-} from '@danmt/wallet-adapter-angular';
-import {
-  getBitpieWallet,
-  getBloctoWallet,
   getPhantomWallet,
+  getSlopeWallet,
   getSolflareWallet,
   getSolletWallet,
   getSolongWallet,
-  WalletName,
 } from '@solana/wallet-adapter-wallets';
 import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import bs58 from 'bs58';
@@ -84,66 +79,43 @@ import { isNotNull } from './operators';
     </main>
   `,
   styles: [],
-  viewProviders: [
-    {
-      provide: WALLET_CONFIG,
-      useValue: {
-        wallets: [
-          getSolletWallet(),
-          getPhantomWallet(),
-          getSolflareWallet(),
-          getSolongWallet(),
-          getBitpieWallet(),
-          getBloctoWallet(),
-        ],
-        autoConnect: true,
-      },
-    },
-    WalletStore,
-    ConnectionStore,
-  ],
+  viewProviders: [WalletStore, ConnectionStore],
 })
 export class AppComponent implements OnInit {
-  connection$ = this.connectionStore.connection$;
-  wallets$ = this.walletStore.wallets$;
-  walletName$ = this.walletStore.name$;
-  connected$ = this.walletStore.connected$;
-  publicKey$ = this.walletStore.publicKey$;
-  ready$ = this.walletStore.ready$;
+  connection$ = this._connectionStore.connection$;
+  wallets$ = this._walletStore.wallets$;
+  walletName$ = this._walletStore.name$;
+  connected$ = this._walletStore.connected$;
+  publicKey$ = this._walletStore.publicKey$;
+  ready$ = this._walletStore.ready$;
   lamports = 0;
   recipient = '';
 
   constructor(
-    private connectionStore: ConnectionStore,
-    private walletStore: WalletStore
+    private readonly _connectionStore: ConnectionStore,
+    private readonly _walletStore: WalletStore
   ) {}
 
   ngOnInit() {
-    // this.walletStore.error$.subscribe((error) => console.log(error));
-
-    this.connectionStore.setEndpoint('https://api.devnet.solana.com');
-
-    /* this.walletStore.anchorWallet$.subscribe((anchorWallet) => {
-      if (!anchorWallet) {
-        console.error('Anchor wallet not available');
-      } else {
-        console.log(anchorWallet);
-      }
-    }); */
-
-    this.walletStore.state$.subscribe((a) => console.log(a));
+    this._walletStore.loadWallets([
+      getPhantomWallet(),
+      getSolletWallet({ network: WalletAdapterNetwork.Devnet }),
+      getSlopeWallet(),
+      getSolflareWallet(),
+      getSolongWallet(),
+    ]);
   }
 
   onConnect() {
-    this.walletStore.connect().subscribe();
+    this._walletStore.connect().subscribe();
   }
 
   onDisconnect() {
-    this.walletStore.disconnect().subscribe();
+    this._walletStore.disconnect().subscribe();
   }
 
   onSelectWallet(walletName: WalletName) {
-    this.walletStore.selectWallet(walletName);
+    this._walletStore.selectWallet(walletName);
   }
 
   onSendTransaction(fromPubkey: PublicKey) {
@@ -152,7 +124,7 @@ export class AppComponent implements OnInit {
         first(),
         isNotNull,
         concatMap((connection) =>
-          this.walletStore.sendTransaction(
+          this._walletStore.sendTransaction(
             new Transaction().add(
               SystemProgram.transfer({
                 fromPubkey,
@@ -193,7 +165,7 @@ export class AppComponent implements OnInit {
         ),
         concatMap((transaction) => {
           const signTransaction$ =
-            this.walletStore.signTransaction(transaction);
+            this._walletStore.signTransaction(transaction);
 
           if (!signTransaction$) {
             return throwError(
@@ -235,7 +207,7 @@ export class AppComponent implements OnInit {
         ),
         concatMap((transactions) => {
           const signAllTransaction$ =
-            this.walletStore.signAllTransactions(transactions);
+            this._walletStore.signAllTransactions(transactions);
 
           if (!signAllTransaction$) {
             return throwError(
@@ -253,7 +225,7 @@ export class AppComponent implements OnInit {
   }
 
   onSignMessage() {
-    const signMessage$ = this.walletStore.signMessage(
+    const signMessage$ = this._walletStore.signMessage(
       new TextEncoder().encode('Hello world!')
     );
 
