@@ -1,20 +1,16 @@
 import { NgModule } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { BrowserModule } from '@angular/platform-browser';
-import { WALLET_CONFIG } from '@danmt/wallet-adapter-angular';
-
+import { WalletAdapterModule } from '@heavy-duty/wallet-adapter';
 import { AppComponent } from './app.component';
+import { HomeComponent } from './home.component';
 
 @NgModule({
-  declarations: [AppComponent],
-  imports: [BrowserModule, FormsModule],
-  providers: [
-    {
-      provide: WALLET_CONFIG,
-      useValue: {
-        autoConnect: true,
-      },
-    },
+  declarations: [AppComponent, HomeComponent],
+  imports: [
+    BrowserModule,
+    FormsModule,
+    WalletAdapterModule.forRoot({ autoConnect: true }),
   ],
   bootstrap: [AppComponent],
 })
