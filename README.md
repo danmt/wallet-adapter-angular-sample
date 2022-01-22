@@ -1,6 +1,6 @@
 # Angular Wallet Adapter Sample
 
-This project shows how to use `@solana/wallet-adapter-angular` package in an Angular application inside a Nx workspace. 
+This project shows how to use `@heavy-duty/wallet-adapter` package in an Angular application inside a Nx workspace. 
 
 ## Development server
 
