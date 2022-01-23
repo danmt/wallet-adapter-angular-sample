@@ -1,7 +1,7 @@
 import { NgModule } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { BrowserModule } from '@angular/platform-browser';
-import { WalletAdapterModule } from '@heavy-duty/wallet-adapter';
+import { HdWalletAdapterModule } from '@heavy-duty/wallet-adapter';
 import { AppComponent } from './app.component';
 import { HomeComponent } from './home.component';
 
@@ -10,7 +10,7 @@ import { HomeComponent } from './home.component';
   imports: [
     BrowserModule,
     FormsModule,
-    WalletAdapterModule.forRoot({ autoConnect: true }),
+    HdWalletAdapterModule.forRoot({ autoConnect: true }),
   ],
   bootstrap: [AppComponent],
 })
