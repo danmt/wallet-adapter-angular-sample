@@ -1,6 +1,7 @@
 {
   "version": 2,
   "projects": {
-    "web-client": "apps/web-client"
-  }
+    "raw-wallet-adapter": "apps/raw-wallet-adapter"
+  },
+  "$schema": "./node_modules/nx/schemas/workspace-schema.json"
 }

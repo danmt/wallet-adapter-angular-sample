@@ -1,17 +1,17 @@
 import { Component } from '@angular/core';
 import { WalletName, WalletReadyState } from '@solana/wallet-adapter-base';
 import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
-import base58 from 'bs58';
+import { encode } from 'bs58';
 import { defer, from, throwError } from 'rxjs';
 import { concatMap, first, map } from 'rxjs/operators';
 import { isNotNull } from './operators';
 import { ConnectionStore, WalletStore } from '@heavy-duty/wallet-adapter';
 
 @Component({
-  selector: 'wallet-adapter-test-home',
+  selector: 'wa-home',
   template: `
     <header>
-      <h1>@solana/wallet-adapter-angular example</h1>
+      <h1>@heavy-duty/wallet-adapter example</h1>
     </header>
 
     <main>
@@ -116,12 +116,13 @@ export class HomeComponent {
         first(),
         isNotNull,
         concatMap((connection) =>
-          from(defer(() => connection.getRecentBlockhash())).pipe(
-            concatMap(({ blockhash }) =>
+          from(defer(() => connection.getLatestBlockhash())).pipe(
+            concatMap(({ blockhash, lastValidBlockHeight }) =>
               this._walletStore.sendTransaction(
                 new Transaction({
-                  recentBlockhash: blockhash,
+                  blockhash,
                   feePayer: fromPubkey,
+                  lastValidBlockHeight,
                 }).add(
                   SystemProgram.transfer({
                     fromPubkey,
@@ -135,10 +136,10 @@ export class HomeComponent {
           )
         )
       )
-      .subscribe(
-        (signature) => console.log(`Transaction sent (${signature})`),
-        (error) => console.error(error)
-      );
+      .subscribe({
+        next: (signature) => console.log(`Transaction sent (${signature})`),
+        error: (error) => console.error(error),
+      });
   }
 
   onSignTransaction(fromPubkey: PublicKey) {
@@ -147,11 +148,12 @@ export class HomeComponent {
         first(),
         isNotNull,
         concatMap((connection) =>
-          from(defer(() => connection.getRecentBlockhash())).pipe(
-            map(({ blockhash }) =>
+          from(defer(() => connection.getLatestBlockhash())).pipe(
+            map(({ blockhash, lastValidBlockHeight }) =>
               new Transaction({
-                recentBlockhash: blockhash,
+                blockhash,
                 feePayer: fromPubkey,
+                lastValidBlockHeight
               }).add(
                 SystemProgram.transfer({
                   fromPubkey,
@@ -168,17 +170,17 @@ export class HomeComponent {
 
           if (!signTransaction$) {
             return throwError(
-              new Error('Sign transaction method is not defined')
+              () => new Error('Sign transaction method is not defined')
             );
           }
 
           return signTransaction$;
         })
       )
-      .subscribe(
-        (transaction) => console.log('Transaction signed', transaction),
-        (error) => console.error(error)
-      );
+      .subscribe({
+        next: (transaction) => console.log('Transaction signed', transaction),
+        error: (error) => console.error(error)
+      });
   }
 
   onSignAllTransactions(fromPubkey: PublicKey) {
@@ -187,12 +189,13 @@ export class HomeComponent {
         first(),
         isNotNull,
         concatMap((connection) =>
-          from(defer(() => connection.getRecentBlockhash())).pipe(
-            map(({ blockhash }) =>
+          from(defer(() => connection.getLatestBlockhash())).pipe(
+            map(({ blockhash, lastValidBlockHeight }) =>
               new Array(3).fill(0).map(() =>
                 new Transaction({
-                  recentBlockhash: blockhash,
+                  blockhash,
                   feePayer: fromPubkey,
+                  lastValidBlockHeight
                 }).add(
                   SystemProgram.transfer({
                     fromPubkey,
@@ -210,17 +213,17 @@ export class HomeComponent {
 
           if (!signAllTransaction$) {
             return throwError(
-              new Error('Sign all transactions method is not defined')
+              () => new Error('Sign all transactions method is not defined')
             );
           }
 
           return signAllTransaction$;
         })
       )
-      .subscribe(
-        (transactions) => console.log('Transactions signed', transactions),
-        (error) => console.error(error)
-      );
+      .subscribe({
+        next: (transactions) => console.log('Transactions signed', transactions),
+        error: (error) => console.error(error)
+      });
   }
 
   onSignMessage() {
@@ -233,7 +236,7 @@ export class HomeComponent {
     }
 
     signMessage$.pipe(first()).subscribe((signature) => {
-      console.log(`Message signature: ${base58.encode(signature)}`);
+      console.log(`Message signature: ${{ encode }.encode(signature)}`);
     });
   }
 }

@@ -13,7 +13,7 @@
           "error",
           {
             "type": "attribute",
-            "prefix": "walletAdapterTest",
+            "prefix": "wa",
             "style": "camelCase"
           }
         ],
@@ -21,7 +21,7 @@
           "error",
           {
             "type": "element",
-            "prefix": "wallet-adapter-test",
+            "prefix": "wa",
             "style": "kebab-case"
           }
         ]

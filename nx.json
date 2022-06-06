@@ -27,9 +27,6 @@
       }
     ]
   },
-  "cli": {
-    "defaultCollection": "@nrwl/angular"
-  },
   "generators": {
     "@nrwl/angular:application": {
       "style": "scss",
@@ -45,5 +42,8 @@
       "style": "scss"
     }
   },
-  "defaultProject": "web-client"
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "cli": {
+    "defaultCollection": "@nrwl/angular"
+  }
 }

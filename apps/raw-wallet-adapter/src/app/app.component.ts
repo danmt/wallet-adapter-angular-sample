@@ -11,8 +11,8 @@ import {
 import { ConnectionStore, WalletStore } from '@heavy-duty/wallet-adapter';
 
 @Component({
-  selector: 'wallet-adapter-test-root',
-  template: ` <wallet-adapter-test-home> </wallet-adapter-test-home> `,
+  selector: 'wa-root',
+  template: ` <wa-home> </wa-home> `,
 })
 export class AppComponent implements OnInit {
   constructor(
