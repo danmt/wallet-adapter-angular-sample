@@ -1,6 +1,7 @@
 {
   "version": 2,
   "projects": {
+    "material-wallet-adapter": "apps/material-wallet-adapter",
     "raw-wallet-adapter": "apps/raw-wallet-adapter"
   },
   "$schema": "./node_modules/nx/schemas/workspace-schema.json"
